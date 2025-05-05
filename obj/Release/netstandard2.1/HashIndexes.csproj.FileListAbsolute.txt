@@ -1,0 +1,10 @@
+C:\Users\yasu5\source\repos\StandardLibrary\HashIndexes\bin\Release\netstandard2.1\HashIndexes.deps.json
+C:\Users\yasu5\source\repos\StandardLibrary\HashIndexes\bin\Release\netstandard2.1\HashIndexes.dll
+C:\Users\yasu5\source\repos\StandardLibrary\HashIndexes\bin\Release\netstandard2.1\HashIndexes.pdb
+C:\Users\yasu5\source\repos\StandardLibrary\HashIndexes\obj\Release\netstandard2.1\HashIndexes.csproj.AssemblyReference.cache
+C:\Users\yasu5\source\repos\StandardLibrary\HashIndexes\obj\Release\netstandard2.1\HashIndexes.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\yasu5\source\repos\StandardLibrary\HashIndexes\obj\Release\netstandard2.1\HashIndexes.AssemblyInfoInputs.cache
+C:\Users\yasu5\source\repos\StandardLibrary\HashIndexes\obj\Release\netstandard2.1\HashIndexes.AssemblyInfo.cs
+C:\Users\yasu5\source\repos\StandardLibrary\HashIndexes\obj\Release\netstandard2.1\HashIndexes.csproj.CoreCompileInputs.cache
+C:\Users\yasu5\source\repos\StandardLibrary\HashIndexes\obj\Release\netstandard2.1\HashIndexes.dll
+C:\Users\yasu5\source\repos\StandardLibrary\HashIndexes\obj\Release\netstandard2.1\HashIndexes.pdb
