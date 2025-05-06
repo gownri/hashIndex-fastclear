@@ -5,14 +5,14 @@ using System.Text;
 
 namespace HashIndexers
 {
-    public readonly ref struct InsertEntry
+    public readonly ref struct Entry
     {
         internal readonly Span<Meta> bucket;
         internal readonly Meta.Data equality;
         internal readonly int entryIndex;
         internal readonly int JumpLength;
 
-        internal InsertEntry(Span<Meta> bucket, Meta.Data equality, int entryIndex, int jumpLength)
+        internal Entry(Span<Meta> bucket, Meta.Data equality, int entryIndex, int jumpLength)
         {
             this.bucket = bucket;
             this.equality = equality;

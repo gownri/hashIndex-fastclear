@@ -164,7 +164,7 @@ namespace HashIndexers
                 return entry.KeyIndex;
 
             return this.Setup(
-                ref this.Insert(index, keyOfSlot),
+                ref this.hashBucket.AsSpan().Insert(this.version, index, keyOfSlot),
                 keyOfSlot,
                 key
             );

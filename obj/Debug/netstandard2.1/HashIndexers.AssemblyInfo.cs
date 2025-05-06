@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("HashIndexers")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9120c554b5d1feefe021b8110c76172ab50b7331")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+09527d08e3d6ed4c5beb34c8b7b9da662add3608")]
 [assembly: System.Reflection.AssemblyProductAttribute("HashIndexers")]
 [assembly: System.Reflection.AssemblyTitleAttribute("HashIndexers")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -13,7 +13,7 @@ namespace HashIndexers
         private BucketVersion version;
 
         public readonly int Count => this.count;
-        public readonly InsertEntry GetEntries(TKey key)
+        public readonly Entry GetEntries(TKey key)
         {
 
             var hash = key.GetHashCode();
@@ -26,10 +26,29 @@ namespace HashIndexers
                 out var index,
                 out entry
             );
-            return new InsertEntry(this.bucket, entry, index, (int)jumpType);
+            return new Entry(this.bucket, entry, index, (int)jumpType);
+        }
+        public void Insert(TKey key, int insertIndexItem)
+        {
+            //    var hash = key.GetHashCode();
+            //    var entry = Meta.Data.CreateEntry(hash, this.version.Bucket);
+            //    var jumpType = entry.GetJumpType();
+            //    this.bucket.EntryOrLess(
+            //        this.bucket.GetBucketIndex(hash),
+            //        entry,
+            //        jumpType,
+            //        out var index,
+            //        out entry
+            //    ); 
+
+            var entryEnumerable = this.GetEntries(key);
+            InsertHint hint = default;
+            foreach (var context in entryEnumerable)
+                hint = context.hint;
+            this.Insert(hint, insertIndexItem);
         }
 
-        public void Insert(int insertIndexItem, InsertHint hint)
+        public void Insert(InsertHint hint, int insertIndexItem)
         {
 
             if (!hint.IsValid)
