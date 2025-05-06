@@ -1,5 +1,5 @@
 is_global = true
-build_property.RootNamespace = HashIndexes
+build_property.RootNamespace = HashIndexers
 build_property.ProjectDir = G:\ProgramingWorkspaces\CSharp\Library\DotNetStandard\HashIndexes\
 build_property.EnableComHosting = 
 build_property.EnableGeneratedComInterfaceComImportInterop = 

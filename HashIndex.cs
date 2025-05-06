@@ -9,7 +9,7 @@ namespace HashIndexers
     public class HashIndex<TKey>
         where TKey : notnull, IEquatable<TKey>
     {
-        internal void DebugDisplay()
+        public void DebugDisplay()
         {
             for (var i = 0; i < this.hashBucket.Length; ++i)
             {
@@ -17,7 +17,7 @@ namespace HashIndexers
                 Console.WriteLine($" index = {i, 3} : key = {(meta.KeyIndex < 0 ? "null": this.keys[meta.KeyIndex]), 12} [ {meta} ]");
             }
         }
-        private Version version;
+        private BucketVersion version;
         private Meta[] hashBucket;
         private TKey[] keys;
 
@@ -27,7 +27,7 @@ namespace HashIndexers
         
         public HashIndex(int initSize)
         {
-            this.version = Version.Create();
+            this.version = BucketVersion.Create();
             int size = 1;
             while ( (size <<= 1) < initSize );
 
@@ -86,7 +86,7 @@ namespace HashIndexers
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool TryGetIndex(TKey key,[MaybeNullWhen(false)] out Index index)
+        public bool TryGetIndex(TKey key,[MaybeNullWhen(false)] scoped out Index index)
         {
             var hashIndex = key.GetHashCode();
             var entryKey = Meta.Data.CreateEntry(hashIndex, this.version.Bucket);
@@ -112,7 +112,8 @@ namespace HashIndexers
 
             bool Find(int start, Meta.Data entry, TKey key, JumpType jumpType, out Index index)
             {
-                index = this.FindOrLess(
+                index = this.hashBucket.AsSpan().FindOrLess(
+                    this.keys,
                     start,
                     entry,
                     key,
@@ -148,7 +149,8 @@ namespace HashIndexers
                 return this.Setup(ref this.hashBucket[hashIndex], entryKey, key);
             }
 
-            var entry = this.FindOrLess(
+            var entry = this.hashBucket.AsSpan().FindOrLess(
+                this.keys,
                 hashIndex,
                 entryKey,
                 key,
@@ -277,7 +279,7 @@ namespace HashIndexers
             container = Meta.Create(insertKey);
             return ref container;
 
-            static void ShiftInsert(Span<Meta> bucket, Version version, long bucketVersion, int insertStartIndex, Meta insertItem)
+            static void ShiftInsert(Span<Meta> bucket, BucketVersion version, long bucketVersion, int insertStartIndex, Meta insertItem)
             {
                 Meta.Data current;
                 JumpType jumpType;

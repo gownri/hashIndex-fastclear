@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace HashIndexers
 {
-    internal readonly struct Version
+    internal readonly struct BucketVersion
     {
         private const int bucketMask = ushort.MaxValue;
         private const int generationOffset = sizeof(ushort) * 8;
@@ -17,7 +17,7 @@ namespace HashIndexers
         public readonly ushort Bucket
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => (ushort)(this.value & bucketMask);
+            get => unchecked((ushort)this.value);
         }
         public readonly int Generation
         {
@@ -26,21 +26,21 @@ namespace HashIndexers
         }
 
         public readonly bool IsInvalid => this.value == 0;
-        public static Version Create()
+        public static BucketVersion Create()
         {
             return new(1, 1);
         }
-        private Version(short generation, ushort bucket)
+        private BucketVersion(short generation, ushort bucket)
             => this.value = ((uint)generation << generationOffset) | (uint)bucket;
-        private Version(uint value)
+        private BucketVersion(uint value)
             => this.value = value;
 
-        public readonly Version IncrementBucket(out bool isOverflow)
+        public readonly BucketVersion IncrementBucket(out bool isOverflow)
         {
             isOverflow = (this.value & bucketMask) == bucketMask;
             return new((uint)(this.value + (isOverflow ? 2 : 1)));
         }
-        public readonly Version IncrementGeneration()
+        public readonly BucketVersion IncrementGeneration()
             => new(this.value + generationUnit);
     }
 }

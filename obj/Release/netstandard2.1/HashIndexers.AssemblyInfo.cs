@@ -11,12 +11,12 @@
 using System;
 using System.Reflection;
 
-[assembly: System.Reflection.AssemblyCompanyAttribute("HashIndexes")]
-[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyCompanyAttribute("HashIndexers")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
 [assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9120c554b5d1feefe021b8110c76172ab50b7331")]
-[assembly: System.Reflection.AssemblyProductAttribute("HashIndexes")]
-[assembly: System.Reflection.AssemblyTitleAttribute("HashIndexes")]
+[assembly: System.Reflection.AssemblyProductAttribute("HashIndexers")]
+[assembly: System.Reflection.AssemblyTitleAttribute("HashIndexers")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
 
 // MSBuild WriteCodeFragment クラスによって生成されました。
