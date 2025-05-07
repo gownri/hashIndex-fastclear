@@ -1,48 +1,58 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace HashIndexers
 {
+    [StructLayout(LayoutKind.Auto)]
     public readonly ref struct Entry
     {
+        const int insertEntryFlag = int.MinValue;
         internal readonly Span<Meta> bucket;
         internal readonly Meta.Data equality;
         internal readonly int entryIndex;
-        internal readonly int JumpLength;
+        private readonly int JumpLength;
 
-        internal Entry(Span<Meta> bucket, Meta.Data equality, int entryIndex, int jumpLength)
+        internal Entry(Span<Meta> bucket, Meta.Data equality, int entryIndex, int jumpLength, bool isInsertEntry)
         {
             this.bucket = bucket;
             this.equality = equality;
             this.entryIndex = entryIndex;
-            this.JumpLength = jumpLength;
+            this.JumpLength = jumpLength | (isInsertEntry ? insertEntryFlag : 0);
+        }
+
+        public readonly bool TryReadInitExist([MaybeNullWhen(true)]out InsertHint insertHint)
+        {
+            insertHint = new(entryIndex, equality);
+            return (this.JumpLength & insertEntryFlag) == 0;
         }
         public readonly EntriesEnumerator GetEnumerator()
             => new(this.bucket, this.equality, this.entryIndex, this.JumpLength);
-
     }
-
 
     public readonly struct Context
     {
         public readonly Index KeyIndex;
-        internal readonly InsertHint hint;
+        public readonly InsertHint InsertHint;
 
         internal Context(Index keyIndex, InsertHint hint)
         {
             this.KeyIndex = keyIndex;
-            this.hint = hint;
+            this.InsertHint = hint;
         }
         public readonly void Deconstruct(out Index index, out InsertHint hint)
         {
             index = this.KeyIndex;
-            hint = this.hint;
+            hint = this.InsertHint;
         }
 
         public static implicit operator Index(Context context)
             => context.KeyIndex;
+        public static implicit operator InsertHint(Context context)
+            => context.InsertHint;
     }
 
     public readonly struct InsertHint

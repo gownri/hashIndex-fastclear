@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace HashIndexers
 {
@@ -40,7 +41,7 @@ namespace HashIndexers
                     while (true)
 #endif
                     {
-                        insertPoint = ref bucket.GetBucket(insertStartIndex += jump); // bucket[bucket.GetBucketIndex(insertStartIndex += jump)];
+                        insertPoint = ref bucket.GetBucket(insertStartIndex += jump);
                         if (limit > 0)
                             current = current.AddJump(jumpType);
                         if (((long)insertPoint.RawData - (long)bucketVersion) < 0) //non use mask
@@ -71,10 +72,11 @@ namespace HashIndexers
             => hash & (bucket.Length - 1);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static ref Meta GetBucket(this Span<Meta> bucket, int hash)
-            => ref bucket[hash & (bucket.Length - 1)];
+            => ref Unsafe.Add( ref MemoryMarshal.GetReference(bucket), hash & (bucket.Length - 1) );
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static ref Meta GetBucket(this Span<Meta> bucket, int hash, scoped out int index)
-            => ref bucket[index = hash & (bucket.Length - 1)];
+            => ref Unsafe.Add(ref MemoryMarshal.GetReference(bucket), index = hash & (bucket.Length - 1) ); 
+            //ref bucket[index = hash & (bucket.Length - 1)];
 
         internal static ref Meta EntryOrLess(this Span<Meta> bucket, int start, Meta.Data entry, JumpType jumpType,
             scoped out int index, scoped out Meta.Data keyOfSlot)
@@ -94,7 +96,6 @@ namespace HashIndexers
 #endif
             do
             {
-                //span = bucket.AsSpan(start, Math.Min(distanceLimit, bucket.Length-start) );
                 span = bucket.Slice(start, Math.Min(distanceLimit, bucket.Length - start));
                 for (pos = 0; pos < span.Length; pos += jump)
                 {
@@ -107,7 +108,6 @@ namespace HashIndexers
                         entry = entry.AddJump(jumpType);
                         continue;
                     }
-                    //this.maxCollisionDistance = Math.Max(entry.Distance, this.maxCollisionDistance);
                     index = pos + start;
                     keyOfSlot = entry;
                     return ref current;
@@ -120,7 +120,6 @@ namespace HashIndexers
             [MethodImpl(MethodImplOptions.NoInlining)]
             ref Meta ProbeOverWork(Span<Meta> bucket, scoped out int index, scoped out Meta.Data keyOfSlot)
             {
-                var overProveCount = Meta.Data.MaxCountableDistance;
                 pos = start;
 
 #if DEBUG
@@ -133,11 +132,9 @@ namespace HashIndexers
                     if (current.RawData > entry.RawData)
                     {
                         pos = bucket.GetBucketIndex(pos + jump);
-                        overProveCount += jump;
                         entry = entry.AddJump(jumpType);
                         continue;
                     }
-                    //this.maxCollisionDistance = Math.Max(overProveCount, this.maxCollisionDistance);
                     index = pos;
                     keyOfSlot = entry;
                     return ref current;
@@ -169,7 +166,6 @@ namespace HashIndexers
 #endif
             do
             {
-                //span = bucket.AsSpan(start, Math.Min(distanceLimit, bucket.Length-start) );
                 span = bucket.Slice(start, Math.Min(distanceLimit, bucket.Length - start));
                 for (pos = 0; pos < span.Length; pos += jump)
                 {
@@ -180,10 +176,6 @@ namespace HashIndexers
                     if (((exist = current.RawData == entry.RawData)
                             && !keys[current.KeyIndex].Equals(key))
                         || current.RawData > entry.RawData)
-                    //if ( current.RawData > entry.RawData 
-                    //    || (exist = current.RawData == entry.RawData)
-                    //        && !keys[current.KeyIndex].Equals(key)
-                    //    )
                     {
                         entry = entry.AddJump(jumpType);
                         continue;

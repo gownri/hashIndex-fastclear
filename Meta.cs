@@ -22,6 +22,9 @@ namespace HashIndexers
         internal readonly Meta Update(Meta.Data data)
             => new(this.KeyIndex, data);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal readonly Meta UpdateKeyIndex(int keyIndex)
+            => new(keyIndex, this.RawData);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Meta Create(Meta.Data data)
             => new(-1, data.RawData);
         public override string ToString()

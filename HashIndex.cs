@@ -1,5 +1,6 @@
 ﻿#nullable enable
 using System;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 namespace HashIndexers
@@ -9,6 +10,7 @@ namespace HashIndexers
     public class HashIndex<TKey>
         where TKey : notnull, IEquatable<TKey>
     {
+        [Conditional("DEBUG")]
         public void DebugDisplay()
         {
             for (var i = 0; i < this.hashBucket.Length; ++i)
@@ -23,15 +25,17 @@ namespace HashIndexers
 
         private int count = 0;
         private int maxCollisionDistance = 0;
+        public int BufferSize => this.hashBucket.Length;
+        public int Count => this.count;
+        public bool IsAddable => this.count < (this.hashBucket.Length - Helper.Sentinel);
         public ReadOnlySpan<TKey> Keys => this.keys.AsSpan(0, this.count);
         
         public HashIndex(int initSize)
         {
             this.version = BucketVersion.Create();
-            int size = 1;
-            while ( (size <<= 1) < initSize );
+            int bucketSize = Helper.GetNextHighest(initSize);
 
-            this.hashBucket = new Meta[size];
+            this.hashBucket = new Meta[bucketSize];
 #if DEBUG
             this.hashBucket.AsSpan().Fill(new(unchecked((int)0xABADBEEF), default));
 #endif
@@ -177,167 +181,6 @@ namespace HashIndexers
             this.keys[keyIndex] = setKey;
             return (setFor = new(keyIndex, setData)).KeyIndex;
         }
-
-        private ref Meta FindOrLess(int start, Meta.Data entry, TKey key, JumpType jumpType, 
-           scoped out bool exist, scoped out int index, scoped out Meta.Data keyOfSlot)
-        {
-#if DEBUG
-            if ((uint)start >= (uint)this.hashBucket.Length)
-                throw new ArgumentOutOfRangeException(nameof(start));
-#endif
-            
-            var jump = (int)jumpType;
-
-            var bucket = (Span<Meta>)this.hashBucket;
-            var keys = this.keys;
-            var distanceLimit = Math.Min(Meta.Data.MaxCountableDistance-entry.Distance, bucket.Length);
-            var span = Span<Meta>.Empty;
-            int pos;
-#if !DEBUG
-            ref var current = ref Unsafe.NullRef<Meta>();
-#endif
-            do
-            {
-                //span = bucket.AsSpan(start, Math.Min(distanceLimit, bucket.Length-start) );
-                span = bucket.Slice( start, Math.Min(distanceLimit, bucket.Length - start) );
-                for (pos = 0; pos < span.Length; pos += jump)
-                {
-#if DEBUG
-                    ref var
-#endif
-                            current = ref span[pos];
-                    if (  ( (exist = current.RawData == entry.RawData)
-                            && !keys[current.KeyIndex].Equals(key) )
-                        || current.RawData > entry.RawData  )
-                    //if ( current.RawData > entry.RawData 
-                    //    || (exist = current.RawData == entry.RawData)
-                    //        && !keys[current.KeyIndex].Equals(key)
-                    //    )
-                    {
-                        entry = entry.AddJump(jumpType);
-                        continue;
-                    }
-                    this.maxCollisionDistance = Math.Max(entry.Distance, this.maxCollisionDistance);
-                    index = pos + start;
-                    keyOfSlot = entry;
-                    return ref current;
-                }
-                distanceLimit -= pos;
-                start = GetBucketIndex(pos + start, bucket.Length);
-            } while (distanceLimit > 0);
-
-            return ref ProbeOverWork(bucket, out exist, out index, out keyOfSlot);
-            [MethodImpl(MethodImplOptions.NoInlining)]
-            ref Meta ProbeOverWork(Span<Meta> span, out bool exist, out int index, out Meta.Data keyOfSlot)
-            {
-                var overProveCount = Meta.Data.MaxCountableDistance;
-                pos = start;
-                
-#if DEBUG
-                if (span.Length < Meta.Data.MaxCountableDistance || span.Length <= this.count)
-                    throw new System.IO.InternalBufferOverflowException(nameof(this.hashBucket));
-                for (var safe = 0; safe < span.Length; ++safe)
-#else
-                while(true)
-#endif
-                {
-                    ref var current = ref span[pos];
-                    if (((exist = current.RawData == entry.RawData)
-                            && !this.keys[current.KeyIndex].Equals(key))
-                        || current.RawData > entry.RawData)
-                    {
-                        pos = this.GetBucketIndex(pos + jump);
-                        overProveCount += jump;
-                        entry = entry.AddJump(jumpType);
-                        continue;
-                    }
-                    this.maxCollisionDistance = Math.Max(overProveCount, this.maxCollisionDistance);
-                    index = pos;
-                    keyOfSlot = entry;
-                    return ref current;
-                }
-                //unreachable
-#if DEBUG
-                throw new NotImplementedException("this line is unreachable");
-#endif
-            }
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private ref Meta Insert(int insertStartIndex, Meta.Data insertKey)
-        {
-            ref var container = ref this.hashBucket[insertStartIndex];
-#if DEBUG
-            if((uint)insertStartIndex >= (uint)this.hashBucket.Length)
-                throw new ArgumentOutOfRangeException(nameof(insertStartIndex));
-            if (this.hashBucket.Length <= this.count)
-                throw new InvalidOperationException($"{nameof(this.hashBucket)} is full");
-#endif
-            long bucketVersion = (uint)this.version.Bucket << Meta.Data.VersionOffset;
-            if ( ((long)container.RawData - (long)bucketVersion) >= 0 )
-                ShiftInsert(this.hashBucket, version, bucketVersion, insertStartIndex, container);
-            container = Meta.Create(insertKey);
-            return ref container;
-
-            static void ShiftInsert(Span<Meta> bucket, BucketVersion version, long bucketVersion, int insertStartIndex, Meta insertItem)
-            {
-                Meta.Data current;
-                JumpType jumpType;
-                int jump;
-
-                ref var insertPoint = ref Unsafe.NullRef<Meta>();
-                int limit;
-                Meta swapTemp;
-                do
-                {
-                    current = insertItem.MashedVDH;
-                    limit = Meta.Data.MaxCountableDistance - current.Distance;
-                    jumpType = current.GetJumpType();
-                    jump = (int)jumpType;
-#if DEBUG
-                    for(var safe = 0; safe < bucket.Length; ++safe)
-#else
-                    while (true)
-#endif
-                    {
-                        insertPoint = ref bucket[GetBucketIndex(insertStartIndex += jump, bucket.Length)];
-                        if (limit > 0)
-                            current = current.AddJump(jumpType);
-                        //if (insertPoint.MashedVDH.Version != this.version.Bucket)
-                        if (((long)insertPoint.RawData - (long)bucketVersion) < 0) //non use mask
-                        {
-                            insertPoint = insertItem.Update(current); //new(insertItem.KeyIndex, current);
-                            return;
-                        }
-                        if (insertPoint.RawData < current.RawData)
-                        {
-                            swapTemp = insertPoint;
-                            insertPoint = insertItem.Update(current);
-                            insertItem = swapTemp;
-                            break;
-                        }
-
-                    }
-                } while (true);
-
-                //unreachable
-#if DEBUG
-                throw new NotImplementedException("this line is unreachable");
-#endif
-            }
-        }
-       
-        //internal enum JumpType : int
-        //{
-        //    One = 1,
-        //    Short = 3,
-        //    Medium = 5,
-        //    Long = 7,
-        //}
-
-       
-
-        
     }
 
 }

@@ -7,6 +7,7 @@ using System.Text;
 
 namespace HashIndexers
 {
+    [StructLayout(LayoutKind.Auto)]
     public ref struct EntriesEnumerator
     {
         private readonly Span<Meta> bucket;
@@ -14,7 +15,11 @@ namespace HashIndexers
         private Index current;
         private int nextIndex;
         private readonly int jump;
-        public readonly Context Current => new(this.current, new(nextIndex, equality));
+        public readonly Context Current {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => new(this.current, new(nextIndex, equality)); 
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext()
         {
 #if DEBUG
@@ -48,7 +53,7 @@ namespace HashIndexers
 
         }
 
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Dispose()
         {
             this.nextIndex = -1;
