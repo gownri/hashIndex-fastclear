@@ -82,7 +82,7 @@ namespace HashIndexers
             if (isClearKeys)
                 Array.Clear(this.keys, 0, this.keys.Length);
         }
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Clear()
         {
             this.version = this.version.IncrementBucket(out var isOverflow);
@@ -91,7 +91,7 @@ namespace HashIndexers
             this.count = 0;
         }
 
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryGetIndex(TKey key,[MaybeNullWhen(false)] scoped out Index index)
         {
             var hashIndex = key.GetHashCode();
@@ -136,14 +136,14 @@ namespace HashIndexers
             }
         }
 
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Index GetIndex(TKey key, out bool exist, bool isExpandable)
         {
             if(isExpandable)
                 this.BucketCheck();
             return this.GetIndex(key, out exist);
         }
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Index GetIndex(TKey key, out bool exist)
         {
 #if DEBUG
