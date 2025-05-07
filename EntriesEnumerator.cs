@@ -28,6 +28,7 @@ namespace HashIndexers
             if (this.nextIndex < 0)
                 throw new InvalidOperationException("this enumerator was disposed");
 #endif
+
             var temp = this.bucket.GetBucket(
                 this.nextIndex, 
                 out var index

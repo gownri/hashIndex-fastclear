@@ -1,13 +1,19 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System;
+using System.Runtime.CompilerServices;
 
 namespace HashIndexers
 {
     internal readonly struct Meta
     {
+        internal static readonly Meta Sentinel = new(unchecked((int)0xBEEFF00D), Data.Sentinel);
         internal readonly int KeyIndex;
         internal readonly uint RawData;
 
-        public readonly Data MashedVDH => Data.FromUInt(this.RawData);
+        public readonly Data MashedVDH {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => Data.FromUInt(this.RawData);
+            //Unsafe.As<uint, Meta.Data>(ref Unsafe.AsRef(this.RawData));
+        }
         internal Meta(int keyIndex, Meta.Data data)
         {
             this.KeyIndex = keyIndex;
@@ -31,6 +37,7 @@ namespace HashIndexers
             => $"keyIndex = {(this.KeyIndex < 0 ? this.KeyIndex.ToString("X") : this.KeyIndex),8} : Data = {this.MashedVDH}";
         public readonly struct Data
         {
+            internal static readonly Data Sentinel = new(0xABADBEEF);
             internal const int DistanceOffset = sizeof(byte) * 8;
             internal const int VersionOffset = sizeof(byte) * 8 + sizeof(byte) * 8;
             internal readonly uint RawData;
@@ -46,7 +53,7 @@ namespace HashIndexers
                 get => (int)(this.RawData >> VersionOffset);
             }
             internal const int MaxCountableDistance = byte.MaxValue;
-            private Data(uint hash, ushort version, byte distance)
+            private Data(uint hash, ushort version)
             {
                 uint mash = (hash >> 8) ^ hash;
                 mash ^= mash >> 16;
@@ -54,7 +61,7 @@ namespace HashIndexers
                 //uint mash = hash ^ (hash << 8);
                 //mash ^= mash << 16;
                 //mash >>= 24;
-                this.RawData = ((uint)version << VersionOffset) | ((uint)distance << DistanceOffset) | mash;
+                this.RawData = ((uint)version << VersionOffset) | mash;
             }
 
             private Data(uint data)
@@ -71,7 +78,7 @@ namespace HashIndexers
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public static Data CreateEntry(int hash, ushort version)
-                => new((uint)hash, version, 0);
+                => new((uint)hash, version);
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             internal static Data FromUInt(uint data)
                 => new(data);

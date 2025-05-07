@@ -55,15 +55,16 @@ namespace HashIndexers
             this.Clear();
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly Entry GetEntries(TKey key)
         {
+            
             var hash = key.GetHashCode();
             var entry = Meta.Data.CreateEntry(hash, this.version.Bucket);
             var jumpType = entry.GetJumpType();
-            hash = this.bucket.GetBucketIndex(hash);
-
-            if (this.bucket[hash].RawData == entry.RawData)
+            var entryRef = this.bucket.GetBucket(hash, out hash);
+            if (entryRef.RawData == entry.RawData)
                 return new Entry(this.bucket, entry, hash, (int)jumpType, true);
 
             var found = this.bucket.EntryOrLess(
@@ -76,17 +77,21 @@ namespace HashIndexers
             return new Entry(this.bucket, entry, index, (int)jumpType, found.RawData != entry.RawData);
         }
 
+        private static readonly Meta[] empty = new Meta[] { Meta.Sentinel };
         public readonly Entry EntryScoping()
         {
-            return default;
+            return new(empty, default, default, default, true);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Insert(TKey key, int insertIndexItem)
         {
             var entryEnumerable = this.GetEntries(key);
             InsertHint hint = default;
-            foreach (var context in entryEnumerable)
-                hint = context.InsertHint;
+            if(entryEnumerable.TryReadInitExist(out var insertHint))
+                foreach (var context in entryEnumerable)
+                    hint = context.InsertHint;
+            else
+                hint = insertHint;
             this.Insert(hint, insertIndexItem);
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

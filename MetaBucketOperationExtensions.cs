@@ -85,9 +85,7 @@ namespace HashIndexers
             if ((uint)start >= (uint)bucket.Length)
                 throw new ArgumentOutOfRangeException(nameof(start));
 #endif
-
             var jump = (int)jumpType;
-
             var distanceLimit = Math.Min(Meta.Data.MaxCountableDistance - entry.Distance, bucket.Length);
             var span = Span<Meta>.Empty;
             int pos;
@@ -193,7 +191,7 @@ namespace HashIndexers
             ref Meta ProbeOverWork(Span<Meta> span, ReadOnlySpan<TKey> keys, 
                 out bool exist, out int index, out Meta.Data keyOfSlot)
             {
-                var overProveCount = Meta.Data.MaxCountableDistance;
+                //var overProveCount = Meta.Data.MaxCountableDistance;
                 pos = start;
 
 #if DEBUG
@@ -208,7 +206,7 @@ namespace HashIndexers
                         || current.RawData > entry.RawData)
                     {
                         pos = span.GetBucketIndex(pos + jump);
-                        overProveCount += jump;
+                        //overProveCount += jump;
                         entry = entry.AddJump(jumpType);
                         continue;
                     }

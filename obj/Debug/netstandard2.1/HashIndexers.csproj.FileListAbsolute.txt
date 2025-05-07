@@ -1,0 +1,10 @@
+G:\ProgramingWorkspaces\CSharp\Library\DotNetStandard\HashIndexes\bin\Debug\netstandard2.1\HashIndexers.deps.json
+G:\ProgramingWorkspaces\CSharp\Library\DotNetStandard\HashIndexes\bin\Debug\netstandard2.1\HashIndexers.dll
+G:\ProgramingWorkspaces\CSharp\Library\DotNetStandard\HashIndexes\bin\Debug\netstandard2.1\HashIndexers.pdb
+G:\ProgramingWorkspaces\CSharp\Library\DotNetStandard\HashIndexes\obj\Debug\netstandard2.1\HashIndexers.csproj.AssemblyReference.cache
+G:\ProgramingWorkspaces\CSharp\Library\DotNetStandard\HashIndexes\obj\Debug\netstandard2.1\HashIndexers.GeneratedMSBuildEditorConfig.editorconfig
+G:\ProgramingWorkspaces\CSharp\Library\DotNetStandard\HashIndexes\obj\Debug\netstandard2.1\HashIndexers.AssemblyInfoInputs.cache
+G:\ProgramingWorkspaces\CSharp\Library\DotNetStandard\HashIndexes\obj\Debug\netstandard2.1\HashIndexers.AssemblyInfo.cs
+G:\ProgramingWorkspaces\CSharp\Library\DotNetStandard\HashIndexes\obj\Debug\netstandard2.1\HashIndexers.csproj.CoreCompileInputs.cache
+G:\ProgramingWorkspaces\CSharp\Library\DotNetStandard\HashIndexes\obj\Debug\netstandard2.1\HashIndexers.dll
+G:\ProgramingWorkspaces\CSharp\Library\DotNetStandard\HashIndexes\obj\Debug\netstandard2.1\HashIndexers.pdb

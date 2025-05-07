@@ -10,7 +10,7 @@ namespace HashIndexers
     public class HashIndex<TKey>
         where TKey : notnull, IEquatable<TKey>
     {
-        [Conditional("DEBUG")]
+        //[Conditional("DEBUG")]
         public void DebugDisplay()
         {
             for (var i = 0; i < this.hashBucket.Length; ++i)
@@ -32,6 +32,8 @@ namespace HashIndexers
         
         public HashIndex(int initSize)
         {
+            initSize++;
+            initSize += Helper.Sentinel;
             this.version = BucketVersion.Create();
             int bucketSize = Helper.GetNextHighest(initSize);
 
@@ -93,9 +95,10 @@ namespace HashIndexers
         public bool TryGetIndex(TKey key,[MaybeNullWhen(false)] scoped out Index index)
         {
             var hashIndex = key.GetHashCode();
+            var bucket = this.hashBucket.AsSpan();
             var entryKey = Meta.Data.CreateEntry(hashIndex, this.version.Bucket);
             hashIndex = this.GetBucketIndex(hashIndex);
-            ref var meta = ref this.hashBucket[hashIndex];
+            var meta = bucket.GetBucket(hashIndex, out hashIndex); //ref this.hashBucket[hashIndex];
             if (meta.RawData == entryKey.RawData 
                 && this.keys[meta.KeyIndex].Equals(key))
             {
@@ -103,8 +106,9 @@ namespace HashIndexers
                 return true;
             }
             var jump = entryKey.GetJumpType();
-            hashIndex = this.GetBucketIndex(hashIndex + (int)jump);
-            meta = ref this.hashBucket[hashIndex];
+            //hashIndex = this.GetBucketIndex(hashIndex + (int)jump);
+            //meta = ref this.hashBucket[hashIndex];
+            meta = bucket.GetBucket(hashIndex + (int)jump, out hashIndex);
             entryKey = entryKey.AddJump(jump);
             if (meta.RawData == entryKey.RawData
                 && this.keys[meta.KeyIndex].Equals(key))
@@ -112,12 +116,14 @@ namespace HashIndexers
                 index = meta.KeyIndex;
                 return true;
             }
-            return Find(hashIndex, entryKey, key, jump, out index);
+            return Find(bucket, this.keys, hashIndex, entryKey, key, jump, out index);
 
-            bool Find(int start, Meta.Data entry, TKey key, JumpType jumpType, out Index index)
+            static bool Find(Span<Meta> bucket, TKey[] keys,
+                int start, Meta.Data entry, TKey key, JumpType jumpType, 
+                out Index index)
             {
-                index = this.hashBucket.AsSpan().FindOrLess(
-                    this.keys,
+                index = bucket.FindOrLess(
+                    keys,
                     start,
                     entry,
                     key,
@@ -126,10 +132,10 @@ namespace HashIndexers
                     out _,
                     out _
                 ).KeyIndex;
-
                 return exist;
             }
         }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Index GetIndex(TKey key, out bool exist, bool isExpandable)
         {
@@ -144,16 +150,16 @@ namespace HashIndexers
             if (this.hashBucket.Length <= this.count)
                 throw new InvalidOperationException($"{nameof(this.hashBucket)} is full");
 #endif
-
+            var bucket = this.hashBucket.AsSpan();
             var hashIndex = key.GetHashCode();
             var entryKey = Meta.Data.CreateEntry(hashIndex, this.version.Bucket);
-            hashIndex = this.GetBucketIndex(hashIndex);
-            if (this.hashBucket[hashIndex].MashedVDH.Version != this.version.Bucket){
+            ref var entry = ref bucket.GetBucket(hashIndex, out hashIndex); //hashIndex = this.GetBucketIndex(hashIndex);
+            if (entry.MashedVDH.Version != this.version.Bucket){
                 exist = false;
-                return this.Setup(ref this.hashBucket[hashIndex], entryKey, key);
+                return this.Setup(ref entry, entryKey, key);
             }
 
-            var entry = this.hashBucket.AsSpan().FindOrLess(
+            entry = ref bucket.FindOrLess(
                 this.keys,
                 hashIndex,
                 entryKey,
@@ -168,13 +174,13 @@ namespace HashIndexers
                 return entry.KeyIndex;
 
             return this.Setup(
-                ref this.hashBucket.AsSpan().Insert(this.version, index, keyOfSlot),
+                ref bucket.Insert(this.version, index, keyOfSlot),
                 keyOfSlot,
                 key
             );
         }
 
-       
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private Index Setup(ref Meta setFor, Meta.Data setData, TKey setKey)
         {
             var keyIndex = this.count++;

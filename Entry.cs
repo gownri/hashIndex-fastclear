@@ -7,7 +7,7 @@ using System.Text;
 
 namespace HashIndexers
 {
-    [StructLayout(LayoutKind.Auto)]
+    //[StructLayout(LayoutKind.Auto)]
     public readonly ref struct Entry
     {
         const int insertEntryFlag = int.MinValue;
@@ -15,22 +15,29 @@ namespace HashIndexers
         internal readonly Meta.Data equality;
         internal readonly int entryIndex;
         private readonly int JumpLength;
+        public readonly long Dummy = 1;
+        public readonly long Dummy2 = 2;
 
         internal Entry(Span<Meta> bucket, Meta.Data equality, int entryIndex, int jumpLength, bool isInsertEntry)
         {
             this.bucket = bucket;
             this.equality = equality;
             this.entryIndex = entryIndex;
-            this.JumpLength = jumpLength | (isInsertEntry ? insertEntryFlag : 0);
+            this.JumpLength = jumpLength | (!isInsertEntry ? insertEntryFlag : 0);
         }
 
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //[MethodImpl(MethodImplOptions.NoInlining)]
         public readonly bool TryReadInitExist([MaybeNullWhen(true)]out InsertHint insertHint)
         {
             insertHint = new(entryIndex, equality);
-            return (this.JumpLength & insertEntryFlag) == 0;
+            return (this.JumpLength & insertEntryFlag) != 0;
         }
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [MethodImpl(MethodImplOptions.NoInlining)]
         public readonly EntriesEnumerator GetEnumerator()
-            => new(this.bucket, this.equality, this.entryIndex, this.JumpLength);
+            => new(this.bucket, this.equality, this.entryIndex, this.JumpLength & ~insertEntryFlag);
     }
 
     public readonly struct Context
