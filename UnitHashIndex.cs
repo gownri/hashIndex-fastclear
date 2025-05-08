@@ -24,7 +24,7 @@ namespace HashIndexers
 
         public static int SizeOfMeta => Unsafe.SizeOf<Meta>();
         public static int ComputeBufferByteSize(int bucketCapacity)
-            => Helper.GetNextHighest(bucketCapacity)*Unsafe.SizeOf<Meta>();
+            => Helper.GetNextPowerOfTwo(bucketCapacity)*Unsafe.SizeOf<Meta>();
         public UnitHashIndex(Span<byte> bufferBucket, bool isCleanBuffer)
         {
             var bucket = MemoryMarshal.Cast<byte, Meta>(bufferBucket);

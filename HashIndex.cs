@@ -35,7 +35,7 @@ namespace HashIndexers
             initSize++;
             initSize += Helper.Sentinel;
             this.version = BucketVersion.Create();
-            int bucketSize = Helper.GetNextHighest(initSize);
+            int bucketSize = Helper.GetNextPowerOfTwo(initSize);
 
             this.hashBucket = new Meta[bucketSize];
 #if DEBUG
@@ -44,6 +44,31 @@ namespace HashIndexers
             this.keys = new TKey[initSize];
         }
 
+        public void Expand(int newSize, bool forceRehash)
+        {
+            if (newSize > this.keys.Length)
+            {
+                var newKeys = new TKey[newSize];
+                Array.Copy(this.keys, newKeys, this.count);
+                this.keys = newKeys;
+            }
+
+            if(newSize > this.hashBucket.Length)
+            {
+                var newBucket = new Meta[Helper.GetNextPowerOfTwo(newSize)];
+                this.hashBucket = newBucket;
+                this.version = BucketVersion.Create();
+                forceRehash = true;
+            }
+
+            if (forceRehash)
+            {
+                var keys = this.keys.AsSpan(0, this.count);
+                this.Clear();
+                foreach (var key in keys)
+                    _ = this.GetIndex(key, out _);
+            }
+        }
         private void BucketExpand()
         {
             var keysRetention = this.keys.AsSpan(0, this.count);
@@ -71,11 +96,6 @@ namespace HashIndexers
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private int GetBucketIndex(int hash)
-            => hash & (this.hashBucket.Length - 1);
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static int GetBucketIndex(int hash, int bucketLength)
-            => hash & (bucketLength - 1);
         public void Clear(bool isClearKeys)
         {
             this.Clear();
@@ -97,7 +117,6 @@ namespace HashIndexers
             var hashIndex = key.GetHashCode();
             var bucket = this.hashBucket.AsSpan();
             var entryKey = Meta.Data.CreateEntry(hashIndex, this.version.Bucket);
-            hashIndex = this.GetBucketIndex(hashIndex);
             var meta = bucket.GetBucket(hashIndex, out hashIndex); //ref this.hashBucket[hashIndex];
             if (meta.RawData == entryKey.RawData 
                 && this.keys[meta.KeyIndex].Equals(key))
@@ -108,7 +127,8 @@ namespace HashIndexers
             var jump = entryKey.GetJumpType();
             //hashIndex = this.GetBucketIndex(hashIndex + (int)jump);
             //meta = ref this.hashBucket[hashIndex];
-            meta = bucket.GetBucket(hashIndex + (int)jump, out hashIndex);
+            var jumpLen = (int)jump;
+            meta = bucket.GetBucket(hashIndex + jumpLen, out hashIndex);
             entryKey = entryKey.AddJump(jump);
             if (meta.RawData == entryKey.RawData
                 && this.keys[meta.KeyIndex].Equals(key))
@@ -116,24 +136,17 @@ namespace HashIndexers
                 index = meta.KeyIndex;
                 return true;
             }
-            return Find(bucket, this.keys, hashIndex, entryKey, key, jump, out index);
-
-            static bool Find(Span<Meta> bucket, TKey[] keys,
-                int start, Meta.Data entry, TKey key, JumpType jumpType, 
-                out Index index)
-            {
-                index = bucket.FindOrLess(
-                    keys,
-                    start,
-                    entry,
+            index = bucket.FindOrLess(
+                    this.keys,
+                    bucket.GetBucketIndex(hashIndex + jumpLen),
+                    entryKey.AddJump(jump),
                     key,
-                    jumpType,
+                    jump,
                     out var exist,
                     out _,
                     out _
                 ).KeyIndex;
-                return exist;
-            }
+            return exist;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

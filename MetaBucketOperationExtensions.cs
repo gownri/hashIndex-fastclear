@@ -156,6 +156,7 @@ namespace HashIndexers
 #endif
 
             var jump = (int)jumpType;
+            var afterJump = 0;
             var distanceLimit = Math.Min(Meta.Data.MaxCountableDistance - entry.Distance, bucket.Length);
             var span = Span<Meta>.Empty;
             int pos;

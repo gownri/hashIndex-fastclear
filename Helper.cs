@@ -10,7 +10,7 @@ namespace HashIndexers
         internal const int Sentinel = 1;
 
         //citation https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
-        internal static int GetNextHighest(int size)
+        internal static int GetNextPowerOfTwo(int size)
         {
             if (size <= 0)
                 return 0;

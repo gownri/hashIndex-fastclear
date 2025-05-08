@@ -18,7 +18,7 @@ namespace HashIndexers
         public BufferPack(int size)
         {
             this.version = BucketVersion.Create();
-            this.size = Helper.GetNextHighest(size);
+            this.size = Helper.GetNextPowerOfTwo(size);
             this.array = ArrayPool<Meta>.Shared.Rent(size);
         }
 
