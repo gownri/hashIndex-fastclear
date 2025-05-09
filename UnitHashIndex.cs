@@ -22,7 +22,7 @@ namespace HashIndexers
         public readonly bool IsAddable => this.count < (this.bucket.Length - Helper.Sentinel);
 
         public static int SizeOfMeta => Unsafe.SizeOf<Meta>();
-        public static int ComputeBufferByteSize(int bucketCapacity)
+        public static int ComputeBucketByteSize(int bucketCapacity)
             => Helper.GetNextPowerOfTwo(bucketCapacity)*Unsafe.SizeOf<Meta>();
         public UnitHashIndex(Span<byte> bufferBucket, bool isCleanBuffer)
         {

@@ -41,7 +41,7 @@ namespace HashIndexers
                     while (true)
 #endif
                     {
-                        insertPoint = ref bucket.GetBucket(insertStartIndex += jump);
+                        insertPoint = ref bucket.GetBucket(insertStartIndex + jump, out insertStartIndex);
                         if (limit > 0)
                             current = current.AddJump(jumpType);
                         if (((long)insertPoint.RawData - (long)bucketVersion) < 0) //non use mask
@@ -92,27 +92,6 @@ namespace HashIndexers
 #if !DEBUG
             ref var current = ref Unsafe.NullRef<Meta>();
 #endif
-            //            do
-            //            {
-            //                span = bucket.Slice(start, Math.Min(distanceLimit, bucket.Length - start));
-            //                for (pos = 0; pos < span.Length; pos += jump)
-            //                {
-            //#if DEBUG
-            //                    ref var
-            //#endif
-            //                            current = ref span[pos];
-            //                    if (current.RawData > entry.RawData)
-            //                    {
-            //                        entry = entry.AddJump(jumpType);
-            //                        continue;
-            //                    }
-            //                    index = pos + start;
-            //                    keyOfSlot = entry;
-            //                    return ref current;
-            //                }
-            //                distanceLimit -= pos;
-            //                start = bucket.GetBucketIndex(pos + start);
-            //            } while (distanceLimit > 0);
             pos = start;
             while (distanceLimit > 0)
             {
@@ -162,12 +141,12 @@ namespace HashIndexers
             }
         }
 
-       
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static ref Meta FindOrLess<TKey>(this Span<Meta> bucket, ReadOnlySpan<TKey> keys,
-                int pos, Meta.Data entry, TKey key, JumpType jumpType,
-                scoped out bool exist, scoped out int index, scoped out Meta.Data keyOfSlot)
-            where TKey : notnull, IEquatable<TKey>
+        internal static ref Meta FindOrLess<TKey>(
+            this Span<Meta> bucket, ReadOnlySpan<TKey> keys,
+            int pos, Meta.Data entry, TKey key, JumpType jumpType,
+            scoped out bool exist, scoped out int index, scoped out Meta.Data keyOfSlot)
+        where TKey : notnull, IEquatable<TKey>
         {
 #if DEBUG
             if ((uint)start >= (uint)bucket.Length)
@@ -175,7 +154,6 @@ namespace HashIndexers
 #endif
             var jump = (int)jumpType;
             var distanceLimit = Math.Min(Meta.Data.MaxCountableDistance - entry.Distance, bucket.Length);
-            var span = Span<Meta>.Empty;
             var existL = false;
 #if !DEBUG
             ref var current = ref Unsafe.NullRef<Meta>();
