@@ -16,6 +16,9 @@ namespace HashIndexers
         public static explicit operator int(JumpType type)
             => (int)(type.ForMetaDataDistanceAddOperationValue >> Meta.Data.DistanceOffset);
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int GetJumpLength(uint rawData)
+            => (int)((((rawData & (-rawData)) & 0b0011) << 1) + 1);
         public readonly override string ToString()
             => $"{(int)this,3} : {this.ForMetaDataDistanceAddOperationValue,8:X}";
     }

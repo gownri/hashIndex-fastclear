@@ -8,10 +8,9 @@ using System.Text;
 using System.Threading.Tasks;
 namespace HashIndexers
 {
-    public ref struct UnitHashIndex<TKey>
-        where TKey : notnull, IEquatable<TKey>
+    public ref struct UnitHashIndex
     {
-        private readonly Span<Meta> bucket;
+        internal readonly Span<Meta> bucket;
         internal readonly Span<Meta> BucketSource => this.bucket;
         internal readonly BucketVersion Version => this.version;
         private int count;
@@ -55,45 +54,8 @@ namespace HashIndexers
             this.Clear();
         }
 
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public readonly Entry GetEntries(TKey key)
-        {
-            
-            var hash = key.GetHashCode();
-            var entry = Meta.Data.CreateEntry(hash, this.version.Bucket);
-            var jumpType = entry.GetJumpType();
-            var entryRef = this.bucket.GetBucket(hash, out hash);
-            if (entryRef.RawData == entry.RawData)
-                return new Entry(this.bucket, entry, hash, (int)jumpType, true);
-
-            var found = this.bucket.EntryOrLess(
-                hash,
-                entry,
-                jumpType,
-                out var index,
-                out entry
-            );
-            return new Entry(this.bucket, entry, index, (int)jumpType, found.RawData != entry.RawData);
-        }
-
-        private static readonly Meta[] empty = new Meta[] { Meta.Sentinel };
-        public readonly Entry EntryScoping()
-        {
-            return new(empty, default, default, default, true);
-        }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Insert(TKey key, int insertIndexItem)
-        {
-            var entryEnumerable = this.GetEntries(key);
-            InsertHint hint = default;
-            if(entryEnumerable.TryReadInitExist(out var insertHint))
-                foreach (var context in entryEnumerable)
-                    hint = context.InsertHint;
-            else
-                hint = insertHint;
-            this.Insert(hint, insertIndexItem);
-        }
+       
+        
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 
         public void Insert(InsertHint hint, int insertIndexItem)
@@ -124,7 +86,8 @@ namespace HashIndexers
                 this.bucket.Clear();
         }
 
-        public void Refresh(ReadOnlySpan<TKey> keys)
+        public void Refresh<TKey>(ReadOnlySpan<TKey> keys)
+            where TKey : notnull, IEquatable<TKey>
         {
             this.Clear();
             var version = this.version;

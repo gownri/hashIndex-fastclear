@@ -28,7 +28,7 @@ namespace HashIndexers
             return new Span<Meta>(this.array, 0, this.size);
         }
 
-        public void Return<TKey>(UnitHashIndex<TKey> unit)
+        public void Return<TKey>(UnitHashIndex unit)
             where TKey : notnull, IEquatable<TKey>
         {
             var returnBucket = unit.BucketSource;

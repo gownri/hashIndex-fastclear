@@ -10,7 +10,7 @@ namespace HashIndexers
     [StructLayout(LayoutKind.Auto)]
     public ref struct EntriesEnumerator
     {
-        private readonly Span<Meta> bucket;
+        private Span<Meta> bucket;
         private readonly Meta.Data equality;
         private Index current;
         private int nextIndex;
@@ -29,35 +29,32 @@ namespace HashIndexers
                 throw new InvalidOperationException("this enumerator was disposed");
 #endif
 
+            if (this.bucket.Length == 0)
+                return false;
             var temp = this.bucket.GetBucket(
-                this.nextIndex, 
+                this.nextIndex,
                 out var index
             );
-            if (temp.RawData != this.equality.RawData)
-                return false;
+
             this.current = temp.KeyIndex;
             this.nextIndex = index + this.jump;
             return true;
         }
-        internal EntriesEnumerator(Span<Meta> bucket, Meta.Data equality, int entryIndex, int jumpLength)
+        internal EntriesEnumerator(Span<Meta> bucket, int entryIndex)
         {
             this.bucket = bucket;
             this.current = default;
             this.nextIndex = entryIndex;
-            this.equality = equality;
-            this.jump = jumpLength;
+            this.equality = bucket.GetBucket(nextIndex).MashedVDH;
+            this.jump = (int)equality.GetJumpType();
         }
 
-        internal EntriesEnumerator(Span<Meta> bucket, int entryIndex)
-            : this(bucket, bucket[entryIndex].MashedVDH, entryIndex, (int)bucket[entryIndex].MashedVDH.GetJumpType())
-        {
-
-        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Dispose()
         {
             this.nextIndex = -1;
+            this.bucket = default;
         }
     }
 

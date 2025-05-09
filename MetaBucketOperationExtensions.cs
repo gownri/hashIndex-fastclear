@@ -92,27 +92,45 @@ namespace HashIndexers
 #if !DEBUG
             ref var current = ref Unsafe.NullRef<Meta>();
 #endif
-            do
+            //            do
+            //            {
+            //                span = bucket.Slice(start, Math.Min(distanceLimit, bucket.Length - start));
+            //                for (pos = 0; pos < span.Length; pos += jump)
+            //                {
+            //#if DEBUG
+            //                    ref var
+            //#endif
+            //                            current = ref span[pos];
+            //                    if (current.RawData > entry.RawData)
+            //                    {
+            //                        entry = entry.AddJump(jumpType);
+            //                        continue;
+            //                    }
+            //                    index = pos + start;
+            //                    keyOfSlot = entry;
+            //                    return ref current;
+            //                }
+            //                distanceLimit -= pos;
+            //                start = bucket.GetBucketIndex(pos + start);
+            //            } while (distanceLimit > 0);
+            pos = start;
+            while (distanceLimit > 0)
             {
-                span = bucket.Slice(start, Math.Min(distanceLimit, bucket.Length - start));
-                for (pos = 0; pos < span.Length; pos += jump)
-                {
 #if DEBUG
-                    ref var
+                ref var
 #endif
-                            current = ref span[pos];
-                    if (current.RawData > entry.RawData)
-                    {
-                        entry = entry.AddJump(jumpType);
-                        continue;
-                    }
-                    index = pos + start;
-                    keyOfSlot = entry;
-                    return ref current;
+                current = ref bucket.GetBucket(pos, out pos);
+                if (current.RawData > entry.RawData)
+                {
+                    entry = entry.AddJump(jumpType);
+                    pos += jump;
+                    distanceLimit -= jump;
+                    continue;
                 }
-                distanceLimit -= pos;
-                start = bucket.GetBucketIndex(pos + start);
-            } while (distanceLimit > 0);
+                index = pos;
+                keyOfSlot = entry;
+                return ref current;
+            }
 
             return ref ProbeOverWork(bucket, out index, out keyOfSlot);
             [MethodImpl(MethodImplOptions.NoInlining)]
@@ -144,9 +162,10 @@ namespace HashIndexers
             }
         }
 
-
+       
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static ref Meta FindOrLess<TKey>(this Span<Meta> bucket, ReadOnlySpan<TKey> keys,
-                int start, Meta.Data entry, TKey key, JumpType jumpType,
+                int pos, Meta.Data entry, TKey key, JumpType jumpType,
                 scoped out bool exist, scoped out int index, scoped out Meta.Data keyOfSlot)
             where TKey : notnull, IEquatable<TKey>
         {
@@ -154,61 +173,58 @@ namespace HashIndexers
             if ((uint)start >= (uint)bucket.Length)
                 throw new ArgumentOutOfRangeException(nameof(start));
 #endif
-
             var jump = (int)jumpType;
-            var afterJump = 0;
             var distanceLimit = Math.Min(Meta.Data.MaxCountableDistance - entry.Distance, bucket.Length);
             var span = Span<Meta>.Empty;
-            int pos;
+            var existL = false;
 #if !DEBUG
             ref var current = ref Unsafe.NullRef<Meta>();
 #endif
-            do
+            while (distanceLimit > 0)
             {
-                span = bucket.Slice(start, Math.Min(distanceLimit, bucket.Length - start));
-                for (pos = 0; pos < span.Length; pos += jump)
+#if DEBUG
+                ref var
+#endif
+                    current = ref bucket.GetBucket(pos, out pos);
+                if (((existL = current.RawData == entry.RawData)
+                        && !keys[current.KeyIndex].Equals(key))
+                    || current.RawData > entry.RawData)
+                {
+                    entry = entry.AddJump(jumpType);
+                    pos += jump;
+                    distanceLimit -= jump;
+                    continue;
+                }
+                exist = existL;
+                index = pos;
+                keyOfSlot = entry;
+                return ref current;
+            }
+
+            return ref ProbeOverWork(bucket, keys,
+                pos, entry, key, jumpType, jump,
+                out exist, out index, out keyOfSlot);
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            static ref Meta ProbeOverWork(Span<Meta> span, ReadOnlySpan<TKey> keys, 
+                int pos, Meta.Data entry, TKey key, JumpType jumpType, int jump,
+                out bool exist, out int index, out Meta.Data keyOfSlot)
+            {
+#if DEBUG
+                for (var safe = 0; safe < span.Length; ++safe)
+#else
+                ref var current = ref Unsafe.NullRef<Meta>();
+                while (true)
+#endif
                 {
 #if DEBUG
                     ref var
 #endif
-                    current = ref span[pos];
+                        current = ref span.GetBucket(pos, out pos);
                     if (((exist = current.RawData == entry.RawData)
                             && !keys[current.KeyIndex].Equals(key))
                         || current.RawData > entry.RawData)
                     {
-                        entry = entry.AddJump(jumpType);
-                        continue;
-                    }
-                    index = pos + start;
-                    keyOfSlot = entry;
-                    return ref current;
-                }
-                distanceLimit -= pos;
-                start = bucket.GetBucketIndex(pos + start);
-            } while (distanceLimit > 0);
-
-            return ref ProbeOverWork(bucket, keys, out exist, out index, out keyOfSlot);
-            [MethodImpl(MethodImplOptions.NoInlining)]
-            ref Meta ProbeOverWork(Span<Meta> span, ReadOnlySpan<TKey> keys, 
-                out bool exist, out int index, out Meta.Data keyOfSlot)
-            {
-                //var overProveCount = Meta.Data.MaxCountableDistance;
-                pos = start;
-
-#if DEBUG
-                for (var safe = 0; safe < span.Length; ++safe)
-#else
-                while (true)
-#endif
-                {
-                    ref var current = ref span[pos];
-                    if (((exist = current.RawData == entry.RawData)
-                            && !keys[current.KeyIndex].Equals(key))
-                        || current.RawData > entry.RawData)
-                    {
-                        pos = span.GetBucketIndex(pos + jump);
-                        //overProveCount += jump;
-                        entry = entry.AddJump(jumpType);
+                        pos += jump;
                         continue;
                     }
                     index = pos;
@@ -221,5 +237,6 @@ namespace HashIndexers
 #endif
             }
         }
+
     }
 }

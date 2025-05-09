@@ -16,7 +16,7 @@ namespace HashIndexers
             for (var i = 0; i < this.hashBucket.Length; ++i)
             {
                 ref var meta = ref this.hashBucket[i];
-                Console.WriteLine($" index = {i, 3} : key = {(meta.KeyIndex < 0 ? "null": this.keys[meta.KeyIndex]), 12} [ {meta} ]");
+                Console.WriteLine($" index = {i, 3} : key = {(meta.KeyIndex < 0 ? "-1": this.keys[meta.KeyIndex]), 12} [ {meta} ]");
             }
         }
         private BucketVersion version;
@@ -90,7 +90,7 @@ namespace HashIndexers
         {
             if (this.count >= this.keys.Length)
                 this.KeysExpand();
-            if (this.count >= this.hashBucket.Length 
+            if (this.count*2 >= this.hashBucket.Length 
                 || this.maxCollisionDistance > Meta.Data.MaxCountableDistance)
                 this.BucketExpand();
         }
@@ -111,22 +111,20 @@ namespace HashIndexers
             this.count = 0;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryGetIndex(TKey key,[MaybeNullWhen(false)] scoped out Index index)
         {
             var hashIndex = key.GetHashCode();
             var bucket = this.hashBucket.AsSpan();
             var entryKey = Meta.Data.CreateEntry(hashIndex, this.version.Bucket);
             var meta = bucket.GetBucket(hashIndex, out hashIndex); //ref this.hashBucket[hashIndex];
-            if (meta.RawData == entryKey.RawData 
+            if (meta.RawData == entryKey.RawData
                 && this.keys[meta.KeyIndex].Equals(key))
             {
                 index = meta.KeyIndex;
                 return true;
             }
             var jump = entryKey.GetJumpType();
-            //hashIndex = this.GetBucketIndex(hashIndex + (int)jump);
-            //meta = ref this.hashBucket[hashIndex];
             var jumpLen = (int)jump;
             meta = bucket.GetBucket(hashIndex + jumpLen, out hashIndex);
             entryKey = entryKey.AddJump(jump);
@@ -156,7 +154,6 @@ namespace HashIndexers
                 this.BucketCheck();
             return this.GetIndex(key, out exist);
         }
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Index GetIndex(TKey key, out bool exist)
         {
 #if DEBUG
