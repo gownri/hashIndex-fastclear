@@ -144,15 +144,20 @@ namespace HashIndexers
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static ref Meta FindOrLess<TKey>(
             this Span<Meta> bucket, ReadOnlySpan<TKey> keys,
-            int pos, Meta.Data entry, TKey key, JumpType jumpType,
-            scoped out bool exist, scoped out int index, scoped out Meta.Data keyOfSlot)
+            scoped in (int start, Meta.Data entry, TKey key, JumpType jumpType) args,
+            //int pos, Meta.Data entry, TKey key, JumpType jumpType,
+            //scoped out bool exist, scoped out int index, scoped out Meta.Data keyOfSlot
+            scoped out (bool exist, int index, Meta.Data keyOfSlot) results
+            )
         where TKey : notnull, IEquatable<TKey>
         {
 #if DEBUG
             if ((uint)start >= (uint)bucket.Length)
                 throw new ArgumentOutOfRangeException(nameof(start));
 #endif
-            var jump = (int)jumpType;
+            var (pos, entry, key, jumpType) = args;
+
+            var jump = (int)args.jumpType;
             var distanceLimit = Math.Min(Meta.Data.MaxCountableDistance - entry.Distance, bucket.Length);
             var existL = false;
 #if !DEBUG
@@ -173,23 +178,26 @@ namespace HashIndexers
                     distanceLimit -= jump;
                     continue;
                 }
-                exist = existL;
-                index = pos;
-                keyOfSlot = entry;
+                //exist = existL;
+                //index = pos;
+                //keyOfSlot = entry;
+                results = (existL, pos, entry);
                 return ref current;
             }
 
             return ref ProbeOverWork(bucket, keys,
                 pos, entry, key, jumpType, jump,
-                out exist, out index, out keyOfSlot);
+                out results);
+
             [MethodImpl(MethodImplOptions.NoInlining)]
             static ref Meta ProbeOverWork(Span<Meta> span, ReadOnlySpan<TKey> keys, 
                 int pos, Meta.Data entry, TKey key, JumpType jumpType, int jump,
-                out bool exist, out int index, out Meta.Data keyOfSlot)
+                out (bool exist, int index, Meta.Data keyOfIndex) results)
             {
 #if DEBUG
                 for (var safe = 0; safe < span.Length; ++safe)
 #else
+                var exist = false;
                 ref var current = ref Unsafe.NullRef<Meta>();
                 while (true)
 #endif
@@ -205,8 +213,9 @@ namespace HashIndexers
                         pos += jump;
                         continue;
                     }
-                    index = pos;
-                    keyOfSlot = entry;
+                    //index = pos;
+                    //keyOfSlot = entry;
+                    results = (exist, pos, entry);
                     return ref current;
                 }
                 //unreachable

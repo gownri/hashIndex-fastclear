@@ -136,15 +136,13 @@ namespace HashIndexers
             }
             index = bucket.FindOrLess(
                     this.keys,
-                    bucket.GetBucketIndex(hashIndex + jumpLen),
+                    (bucket.GetBucketIndex(hashIndex + jumpLen),
                     entryKey.AddJump(jump),
                     key,
-                    jump,
-                    out var exist,
-                    out _,
-                    out _
+                    jump),
+                    out (bool exist, int, Meta.Data) outs
                 ).KeyIndex;
-            return exist;
+            return outs.exist;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -171,21 +169,20 @@ namespace HashIndexers
 
             entry = ref bucket.FindOrLess(
                 this.keys,
-                hashIndex,
+               (hashIndex,
                 entryKey,
                 key,
-                entryKey.GetJumpType(),
-                out exist,
-                out var index,
-                out var keyOfSlot
+                entryKey.GetJumpType()),
+                out (bool isExist, int index, Meta.Data keyOfSlot) outs
             );
 
+            exist = outs.isExist;
             if (exist)
                 return entry.KeyIndex;
 
             return this.Setup(
-                ref bucket.Insert(this.version, index, keyOfSlot),
-                keyOfSlot,
+                ref bucket.Insert(this.version, outs.index, outs.keyOfSlot),
+                outs.keyOfSlot,
                 key
             );
         }
