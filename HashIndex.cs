@@ -138,16 +138,17 @@ namespace HashIndexes
                 index = meta.KeyIndex;
                 return true;
             }
+
             index = bucket.FindOrLess(
-                    this.keys,
-                    (
-                        bucket.GetBucketIndex(hashIndex + jumpLen),
-                        entryKey.AddJump(jump),
-                        jump,
-                        key
-                    ),
-                    out var outs
-                ).KeyIndex;
+                        this.keys,
+                        (
+                            bucket.GetBucketIndex(hashIndex + jumpLen),
+                            entryKey.AddJump(jump),
+                            jump,
+                            key
+                        ),
+                        out var outs
+                    ).KeyIndex;
             return outs.exist;
         }
 
@@ -184,11 +185,9 @@ namespace HashIndexes
 
             //checking
             if (this.maxCollision.RawData < outs.keyOfSlot.RawData)
-            {
                 this.maxCollision = outs.keyOfSlot;
-                if (this.maxCollision.Distance > tolerateCollisions)
-                    this.BucketExpand();
-            }
+            if (this.maxCollision.Distance > tolerateCollisions)
+                this.BucketExpand();
 
             exist = outs.exist;
             if (exist)
