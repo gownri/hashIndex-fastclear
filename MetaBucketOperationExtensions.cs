@@ -129,16 +129,13 @@ namespace HashIndexes
             => ref Unsafe.Add(ref MemoryMarshal.GetReference(bucket), hashIndex & (bucket.Length - 1) );
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static ref Meta GetBucket(this Span<Meta> bucket, int hashIndex, scoped out int roundedIndex)
-            => ref Unsafe.Add(ref MemoryMarshal.GetReference(bucket), roundedIndex = hashIndex & (bucket.Length - 1)); 
+            => ref Unsafe.Add(ref MemoryMarshal.GetReference(bucket), roundedIndex = hashIndex & (bucket.Length - 1));
 
+        [Obsolete]
         internal static ref Meta EntryOrLess(this Span<Meta> bucket, 
             scoped in (int start, Meta.Data entry, JumpType jumpType) args,
             scoped out int index, scoped out Meta.Data keyOfSlot)
         {
-#if DEBUG
-            if ((uint)start >= (uint)bucket.Length)
-                throw new ArgumentOutOfRangeException(nameof(start));
-#endif
             var (start, entry, jumpType) = args;
             var jump = (int)jumpType;
             var distanceLimit = Math.Min(Meta.Data.MaxCountableDistance - entry.Distance, bucket.Length);
@@ -171,7 +168,6 @@ namespace HashIndexes
             ref Meta ProbeOverWork(Span<Meta> bucket, scoped out int index, scoped out Meta.Data keyOfSlot)
             {
                 pos = start;
-
 #if DEBUG
                 for (var safe = 0; safe < bucket.Length; ++safe)
 #else
@@ -196,7 +192,6 @@ namespace HashIndexes
             }
         }
 
-        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static ref Meta FindOrLess<TKey>(
             this Span<Meta> bucket, ReadOnlySpan<TKey> keys,
             scoped in (int start, Meta.Data entry, JumpType jumpType, TKey key) args,
@@ -204,10 +199,6 @@ namespace HashIndexes
         )
         where TKey : notnull, IEquatable<TKey>
         {
-#if DEBUG
-            if ((uint)start >= (uint)bucket.Length)
-                throw new ArgumentOutOfRangeException(nameof(start));
-#endif
             var (pos, entry, jumpType, key) = args;
 
             var jump = (int)jumpType;
@@ -246,11 +237,12 @@ namespace HashIndexes
                 scoped out (bool exist, int index, Meta.Data keyOfIndex) results)
             {
                 //var (pos, entry, key, jumpType, jump) = args;
+                var exist = false;
+                
+                ref var current = ref Unsafe.NullRef<Meta>();
 #if DEBUG
                 for (var safe = 0; safe < span.Length; ++safe)
 #else
-                var exist = false;
-                ref var current = ref Unsafe.NullRef<Meta>();
                 while (true)
 #endif
                 {
