@@ -239,10 +239,10 @@ namespace HashIndexes
                 //var (pos, entry, key, jumpType, jump) = args;
                 var exist = false;
                 
-                ref var current = ref Unsafe.NullRef<Meta>();
 #if DEBUG
                 for (var safe = 0; safe < span.Length; ++safe)
 #else
+                ref var current = ref Unsafe.NullRef<Meta>();
                 while (true)
 #endif
                 {
