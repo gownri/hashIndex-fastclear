@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace HashIndexers
+namespace HashIndexes
 {
     internal readonly struct JumpType
     {
@@ -20,6 +20,8 @@ namespace HashIndexers
         public static int GetJumpLength(uint rawData)
             => (int)((((rawData & (-rawData)) & 0b0011) << 1) + 1);
         public readonly override string ToString()
-            => $"{(int)this,3} : {this.ForMetaDataDistanceAddOperationValue,8:X}";
+            => $"Jump:{(int)this,3}";
+        
     }
+
 }

@@ -5,60 +5,64 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace HashIndexers
+namespace HashIndexes
 {
     //[StructLayout(LayoutKind.Auto)]
     public readonly ref struct Entry
     {
         internal readonly Span<Meta> bucket;
         internal readonly int entryIndex;
+        internal readonly Meta.Data equality;
 
-        internal Entry(Span<Meta> bucket, int entryIndex)
+        public readonly bool HasEntry => this.bucket.Length > 0;
+
+        internal Entry(Span<Meta> bucket, int entryIndex, Meta.Data equality)
         {
             this.bucket = bucket;
             this.entryIndex = entryIndex;
+            this.equality = equality;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public readonly bool TryPeekInitEntry([MaybeNullWhen(true)] out InsertHint insertHint)
         {
-            if(entryIndex < 0){
-                insertHint = default;
-                return false;
-            }
-            else
-                insertHint = default;
-            return true;
+            var ret = this.bucket.Length != 0
+                        && this.bucket.GetBucket(this.entryIndex).RawData == this.equality.RawData;
+            insertHint = ret ? default : new(this.entryIndex, this.equality);
+            return ret;
         }
         public readonly EntriesEnumerator GetEnumerator()
-            => this.entryIndex < 0
-            ? default
-            : new(
-                bucket,
-                this.entryIndex
-            );
+            => this.bucket.Length == 0
+                ? default
+                : new(
+                    this.bucket,
+                    this.entryIndex
+                );
     }
 
     public readonly struct Context
     {
-        public readonly Index KeyIndex;
-        public readonly InsertHint InsertHint;
+        internal readonly Index keyIndex;
+        internal readonly InsertHint insertHint;
+
+        public readonly Index KeyIndex => this.keyIndex;
+        public readonly InsertHint InsertHint => this.insertHint;
 
         internal Context(Index keyIndex, InsertHint hint)
         {
-            this.KeyIndex = keyIndex;
-            this.InsertHint = hint;
+            this.keyIndex = keyIndex;
+            this.insertHint = hint;
         }
         public readonly void Deconstruct(out Index index, out InsertHint hint)
         {
-            index = this.KeyIndex;
-            hint = this.InsertHint;
+            index = this.keyIndex;
+            hint = this.insertHint;
         }
 
         public static implicit operator Index(Context context)
-            => context.KeyIndex;
+            => context.keyIndex;
         public static implicit operator InsertHint(Context context)
-            => context.InsertHint;
+            => context.insertHint;
     }
 
     public readonly struct InsertHint

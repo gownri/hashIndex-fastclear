@@ -5,55 +5,58 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace HashIndexers
+namespace HashIndexes
 {
     [StructLayout(LayoutKind.Auto)]
     public ref struct EntriesEnumerator
     {
         private Span<Meta> bucket;
         private readonly Meta.Data equality;
-        private Index current;
-        private int nextIndex;
-        private readonly int jump;
+        private int currentIndex;
         public readonly Context Current {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => new(this.current, new(nextIndex, equality)); 
+            get { 
+                var temp = this.bucket.GetBucket(this.currentIndex);
+                return new Context(
+                        temp.KeyIndex,
+                        new(
+                            this.currentIndex,
+                            temp.MashedVDH
+                        )
+                );
+            } 
         }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool MoveNext()
         {
-#if DEBUG
-            if (this.bucket.Length <= 0)
-                throw new NullReferenceException(nameof(EntriesEnumerator));
-            if (this.nextIndex < 0)
-                throw new InvalidOperationException("this enumerator was disposed");
-#endif
-
             if (this.bucket.Length == 0)
                 return false;
+            var jump = JumpType.GetJumpLength(this.equality.RawData);
             var temp = this.bucket.GetBucket(
-                this.nextIndex,
+                this.currentIndex + jump,
                 out var index
             );
 
-            this.current = temp.KeyIndex;
-            this.nextIndex = index + this.jump;
+            if(temp.RawData != this.equality.RawData)
+            {
+                this.bucket = default;
+            }
+            this.currentIndex = index;
             return true;
         }
         internal EntriesEnumerator(Span<Meta> bucket, int entryIndex)
         {
             this.bucket = bucket;
-            this.current = default;
-            this.nextIndex = entryIndex;
-            this.equality = bucket.GetBucket(nextIndex).MashedVDH;
-            this.jump = (int)equality.GetJumpType();
+            if (this.bucket.Length == 0)
+                return;
+            this.currentIndex = entryIndex;
+            this.equality = bucket.GetBucket(this.currentIndex).MashedVDH;
         }
 
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Dispose()
         {
-            this.nextIndex = -1;
             this.bucket = default;
         }
     }

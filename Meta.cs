@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
 
-namespace HashIndexers
+namespace HashIndexes
 {
     internal readonly struct Meta
     {
@@ -38,6 +38,7 @@ namespace HashIndexers
         public readonly struct Data
         {
             internal static readonly Data Sentinel = new(0xABADBEEF);
+            internal static readonly Data Initial = Meta.Data.CreateEntry(0, 1);
             internal const int DistanceOffset = sizeof(byte) * 8;
             internal const int VersionOffset = sizeof(byte) * 8 + sizeof(byte) * 8;
             internal readonly uint RawData;

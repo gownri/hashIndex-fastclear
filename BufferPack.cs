@@ -1,4 +1,5 @@
-﻿using System;
+﻿using HashIndexes;
+using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
@@ -6,7 +7,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 
-namespace HashIndexers
+namespace HashIndexes
 {
     public class BufferPack
     {
@@ -28,8 +29,7 @@ namespace HashIndexers
             return new Span<Meta>(this.array, 0, this.size);
         }
 
-        public void Return<TKey>(UnitHashIndex unit)
-            where TKey : notnull, IEquatable<TKey>
+        public void Return(UnitHashIndex unit)
         {
             var returnBucket = unit.BucketSource;
             if (Unsafe.AreSame(ref this.array[0], ref unit.BucketSource[0]) )
@@ -51,6 +51,7 @@ namespace HashIndexers
             {
                 ArrayPool<Meta>.Shared.Return(this.array);
             }
+            this.isDisposed = true;
         }
     }
 }

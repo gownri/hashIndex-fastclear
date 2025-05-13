@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace HashIndexers
+namespace HashIndexes
 {
     public static class UnitHashIndexKeyOperationExtensions
     {
@@ -23,26 +23,58 @@ namespace HashIndexers
 
         //[MethodImpl(MethodImplOptions.NoInlining)]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static Entry GetEntries<TKey>(ref this UnitHashIndex unit, TKey key)
+        public static Entry GetEntries<TKey>(this scoped ref UnitHashIndex unit, TKey key)
             where TKey : notnull
         {
-
             var hashIndex = key.GetHashCode();
             var entry = Meta.Data.CreateEntry(hashIndex, unit.Version.Bucket);
-            var entryRef = unit.BucketSource.GetBucket(hashIndex, out hashIndex);
+            var entryRef = unit.bucket.GetBucket(hashIndex, out hashIndex);
             if (entryRef.RawData <= entry.RawData)
-                return new(default, ~hashIndex);
+                return new(default, hashIndex, entry);
 
-            var found = unit.BucketSource.EntryOrLess(
-                hashIndex,
-                entry,
-                entry.GetJumpType(),
+            _ = unit.bucket.EntryOrLess(
+                (
+                    hashIndex,
+                    entry,
+                    entry.GetJumpType()
+                ),
                 out hashIndex,
                 out entry
             );
 
-            return new(unit.BucketSource, hashIndex);
+            return new(unit.bucket, hashIndex, entry);
         }
 
+        //public static Index GetIndex<TKey>(this UnitHashIndex unit, ReadOnlySpan<TKey> keys, TKey key, out bool exist)
+        //{
+        //    var hashIndex = key.GetHashCode();
+        //    var entry = Meta.Data.CreateEntry(hashIndex, unit.Version.Bucket);
+        //}
+
+
+        public static bool TryGetIndex<TKey>(this UnitHashIndex unit, ReadOnlySpan<TKey> keys, TKey key, out Index index)
+            where TKey : notnull, IEquatable<TKey>
+        {
+            var hashIndex = key.GetHashCode();
+            var entry = Meta.Data.CreateEntry(hashIndex, unit.Version.Bucket);
+            var entryRef = unit.bucket.GetBucket(hashIndex, out hashIndex);
+            if (entryRef.RawData <= entry.RawData)
+            {
+                index = default;
+                return false;
+            }
+            _ = unit.bucket.FindOrLess(
+                keys,
+                (
+                    hashIndex,
+                    entry,
+                    entry.GetJumpType(),
+                    key
+                ),
+                out var outs
+            );
+            index = outs.indexOfBucket;
+            return outs.exist;
+        }
     }
 }

@@ -2,10 +2,64 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-namespace HashIndexers
+namespace HashIndexes
 {
     internal static class MetaBucketOperationExtensions
     {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void Insert(this Span<Meta> bucket, int insertPoint, Meta insertItem, ushort version)
+        {
+            ref var initial = ref bucket.GetBucket(insertPoint);
+            long bucketVersion = (uint)version << Meta.Data.VersionOffset;
+            if (((long)initial.RawData - (long)bucketVersion) < 0)
+            {
+                initial = insertItem;
+                return;
+            }
+            ShiftInsert(bucket, bucketVersion, insertPoint, insertItem);
+            return;
+
+            static void ShiftInsert(Span<Meta> bucket, long bucketVersion, int insertPoint, Meta insertItem)
+            {
+                Meta.Data current;
+                JumpType jumpType;
+                int jump;
+                int limit;
+                ref var target = ref Unsafe.NullRef<Meta>();
+
+                Meta swapTemp;
+                do
+                {
+                    current = insertItem.MashedVDH;
+                    jumpType = current.GetJumpType();
+                    jump = (int)jumpType;
+                    limit = Meta.Data.MaxCountableDistance - current.Distance;
+                    while (true)
+                    {
+                        //only JumpType = {1, 3, 5}
+                        if (limit != 0){
+                            current = current.AddJump(jumpType);
+                            limit -= jump;
+                        }
+                        target = ref bucket.GetBucket(insertPoint + jump, out insertPoint);
+                        if (target.RawData < current.RawData)
+                            if ((long)target.RawData - (long)bucketVersion < 0)
+                            {
+                                target = insertItem.Update(current);
+                                return;
+                            }
+                            else
+                            {
+                                swapTemp = target;
+                                target = insertItem.Update(current);
+                                insertItem = swapTemp;
+                                break;
+                            }
+                    }
+                } while (true);
+            }
+        }
+        [Obsolete]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static ref Meta Insert(this Span<Meta> bucket, BucketVersion version, int insertStartIndex, Meta.Data insertKey)
         {
@@ -68,23 +122,24 @@ namespace HashIndexers
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static int GetBucketIndex(this Span<Meta> bucket, int hash)
-            => hash & (bucket.Length - 1);
+        internal static int GetBucketIndex(this Span<Meta> bucket, int hashIndex)
+            => hashIndex & (bucket.Length - 1);
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static ref Meta GetBucket(this Span<Meta> bucket, int hash)
-            => ref Unsafe.Add( ref MemoryMarshal.GetReference(bucket), hash & (bucket.Length - 1) );
+        internal static ref Meta GetBucket(this Span<Meta> bucket, int hashIndex)
+            => ref Unsafe.Add(ref MemoryMarshal.GetReference(bucket), hashIndex & (bucket.Length - 1) );
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static ref Meta GetBucket(this Span<Meta> bucket, int hash, scoped out int index)
-            => ref Unsafe.Add(ref MemoryMarshal.GetReference(bucket), index = hash & (bucket.Length - 1) ); 
-            //ref bucket[index = hash & (bucket.Length - 1)];
+        internal static ref Meta GetBucket(this Span<Meta> bucket, int hashIndex, scoped out int roundedIndex)
+            => ref Unsafe.Add(ref MemoryMarshal.GetReference(bucket), roundedIndex = hashIndex & (bucket.Length - 1)); 
 
-        internal static ref Meta EntryOrLess(this Span<Meta> bucket, int start, Meta.Data entry, JumpType jumpType,
+        internal static ref Meta EntryOrLess(this Span<Meta> bucket, 
+            scoped in (int start, Meta.Data entry, JumpType jumpType) args,
             scoped out int index, scoped out Meta.Data keyOfSlot)
         {
 #if DEBUG
             if ((uint)start >= (uint)bucket.Length)
                 throw new ArgumentOutOfRangeException(nameof(start));
 #endif
+            var (start, entry, jumpType) = args;
             var jump = (int)jumpType;
             var distanceLimit = Math.Min(Meta.Data.MaxCountableDistance - entry.Distance, bucket.Length);
             var span = Span<Meta>.Empty;
@@ -144,25 +199,24 @@ namespace HashIndexers
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static ref Meta FindOrLess<TKey>(
             this Span<Meta> bucket, ReadOnlySpan<TKey> keys,
-            scoped in (int start, Meta.Data entry, TKey key, JumpType jumpType) args,
-            //int pos, Meta.Data entry, TKey key, JumpType jumpType,
-            //scoped out bool exist, scoped out int index, scoped out Meta.Data keyOfSlot
-            scoped out (bool exist, int index, Meta.Data keyOfSlot) results
-            )
+            scoped in (int start, Meta.Data entry, JumpType jumpType, TKey key) args,
+            scoped out (bool exist, int indexOfBucket, Meta.Data keyOfSlot) results
+        )
         where TKey : notnull, IEquatable<TKey>
         {
 #if DEBUG
             if ((uint)start >= (uint)bucket.Length)
                 throw new ArgumentOutOfRangeException(nameof(start));
 #endif
-            var (pos, entry, key, jumpType) = args;
+            var (pos, entry, jumpType, key) = args;
 
-            var jump = (int)args.jumpType;
+            var jump = (int)jumpType;
             var distanceLimit = Math.Min(Meta.Data.MaxCountableDistance - entry.Distance, bucket.Length);
             var existL = false;
 #if !DEBUG
             ref var current = ref Unsafe.NullRef<Meta>();
 #endif
+            //if unrolling as {1, 3, 5} * 17
             while (distanceLimit > 0)
             {
 #if DEBUG
@@ -178,9 +232,6 @@ namespace HashIndexers
                     distanceLimit -= jump;
                     continue;
                 }
-                //exist = existL;
-                //index = pos;
-                //keyOfSlot = entry;
                 results = (existL, pos, entry);
                 return ref current;
             }
@@ -192,8 +243,9 @@ namespace HashIndexers
             [MethodImpl(MethodImplOptions.NoInlining)]
             static ref Meta ProbeOverWork(Span<Meta> span, ReadOnlySpan<TKey> keys, 
                 int pos, Meta.Data entry, TKey key, JumpType jumpType, int jump,
-                out (bool exist, int index, Meta.Data keyOfIndex) results)
+                scoped out (bool exist, int index, Meta.Data keyOfIndex) results)
             {
+                //var (pos, entry, key, jumpType, jump) = args;
 #if DEBUG
                 for (var safe = 0; safe < span.Length; ++safe)
 #else
@@ -225,5 +277,19 @@ namespace HashIndexers
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void Rehash<TKey>(this Span<Meta> bucket, Span<TKey> keys, ushort version)
+            where TKey : notnull
+        {
+            int hashIndex;
+            Meta.Data entry;
+            for(var i = 0; i < keys.Length; i++)
+            {
+                hashIndex = keys[i].GetHashCode();
+                entry = Meta.Data.CreateEntry(hashIndex, version);
+                bucket.Insert(hashIndex, new(i, entry), version);
+            }
+        }
     }
+
 }

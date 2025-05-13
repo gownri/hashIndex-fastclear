@@ -8,3 +8,13 @@ C:\Users\yasu5\source\repos\StandardLibrary\HashIndexes\obj\Release\netstandard2
 C:\Users\yasu5\source\repos\StandardLibrary\HashIndexes\obj\Release\netstandard2.1\HashIndexes.csproj.CoreCompileInputs.cache
 C:\Users\yasu5\source\repos\StandardLibrary\HashIndexes\obj\Release\netstandard2.1\HashIndexes.dll
 C:\Users\yasu5\source\repos\StandardLibrary\HashIndexes\obj\Release\netstandard2.1\HashIndexes.pdb
+G:\ProgramingWorkspaces\CSharp\Library\DotNetStandard\HashIndexes\bin\Release\netstandard2.1\HashIndexes.deps.json
+G:\ProgramingWorkspaces\CSharp\Library\DotNetStandard\HashIndexes\bin\Release\netstandard2.1\HashIndexes.dll
+G:\ProgramingWorkspaces\CSharp\Library\DotNetStandard\HashIndexes\bin\Release\netstandard2.1\HashIndexes.pdb
+G:\ProgramingWorkspaces\CSharp\Library\DotNetStandard\HashIndexes\obj\Release\netstandard2.1\HashIndexes.csproj.AssemblyReference.cache
+G:\ProgramingWorkspaces\CSharp\Library\DotNetStandard\HashIndexes\obj\Release\netstandard2.1\HashIndexes.GeneratedMSBuildEditorConfig.editorconfig
+G:\ProgramingWorkspaces\CSharp\Library\DotNetStandard\HashIndexes\obj\Release\netstandard2.1\HashIndexes.AssemblyInfoInputs.cache
+G:\ProgramingWorkspaces\CSharp\Library\DotNetStandard\HashIndexes\obj\Release\netstandard2.1\HashIndexes.AssemblyInfo.cs
+G:\ProgramingWorkspaces\CSharp\Library\DotNetStandard\HashIndexes\obj\Release\netstandard2.1\HashIndexes.csproj.CoreCompileInputs.cache
+G:\ProgramingWorkspaces\CSharp\Library\DotNetStandard\HashIndexes\obj\Release\netstandard2.1\HashIndexes.dll
+G:\ProgramingWorkspaces\CSharp\Library\DotNetStandard\HashIndexes\obj\Release\netstandard2.1\HashIndexes.pdb

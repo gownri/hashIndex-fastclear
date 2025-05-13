@@ -55,9 +55,9 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "G:\\ProgramingWorkspaces\\CSharp\\Library\\DotNetStandard\\HashIndexes\\HashIndexers.csproj",
-      "projectName": "HashIndexers",
-      "projectPath": "G:\\ProgramingWorkspaces\\CSharp\\Library\\DotNetStandard\\HashIndexes\\HashIndexers.csproj",
+      "projectUniqueName": "G:\\ProgramingWorkspaces\\CSharp\\Library\\DotNetStandard\\HashIndexes\\HashIndexes.csproj",
+      "projectName": "HashIndexes",
+      "projectPath": "G:\\ProgramingWorkspaces\\CSharp\\Library\\DotNetStandard\\HashIndexes\\HashIndexes.csproj",
       "packagesPath": "C:\\Users\\yasu5\\.nuget\\packages\\",
       "outputPath": "G:\\ProgramingWorkspaces\\CSharp\\Library\\DotNetStandard\\HashIndexes\\obj\\",
       "projectStyle": "PackageReference",

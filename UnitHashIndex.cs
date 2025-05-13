@@ -1,4 +1,5 @@
-﻿using System;
+﻿using HashIndexes;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -6,7 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
-namespace HashIndexers
+namespace HashIndexes
 {
     public ref struct UnitHashIndex
     {
@@ -19,7 +20,7 @@ namespace HashIndexers
         public readonly int BucketSize => this.bucket.Length;
         public readonly int Count => this.count;
 
-        public readonly bool IsAddable => this.count < (this.bucket.Length - Helper.Sentinel);
+        public readonly bool IsAddable => this.count < (this.bucket.Length - Helper.BucketSentinel);
 
         public static int SizeOfMeta => Unsafe.SizeOf<Meta>();
         public static int ComputeBucketByteSize(int bucketCapacity)
@@ -54,11 +55,33 @@ namespace HashIndexers
             this.Clear();
         }
 
-       
-        
+        //[MethodImpl(MethodImplOptions.AggressiveInlining)]
+        //public Entry GetEntries<TKey>(TKey key)
+        //    where TKey : notnull
+        //{
+        //    var unit = this;
+        //    var hashIndex = key.GetHashCode();
+        //    var entry = Meta.Data.CreateEntry(hashIndex, unit.Version.Bucket);
+        //    var entryRef = unit.bucket.GetBucket(hashIndex, out hashIndex);
+        //    if (entryRef.RawData <= entry.RawData)
+        //        return new(default, hashIndex, entry);
+
+        //    _ = unit.bucket.EntryOrLess(
+        //        (
+        //            hashIndex,
+        //            entry,
+        //            entry.GetJumpType()
+        //        ),
+        //        out hashIndex,
+        //        out entry
+        //    );
+
+        //    return new(unit.bucket, hashIndex, entry);
+        //}
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 
-        public void Insert(InsertHint hint, int insertIndexItem)
+        public void Insert(InsertHint hint, Index insertIndexItem)
         {
 
             if (!hint.IsValid)
@@ -68,13 +91,12 @@ namespace HashIndexers
                 return;
 #endif
             this.count++;
-
             ref var inserted = ref this.bucket.Insert(
                 this.version,
                 hint.Index,
                 hint.metaData
             );
-            inserted = new (insertIndexItem, hint.metaData);
+            inserted = new (insertIndexItem.Value, hint.metaData);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

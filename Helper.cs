@@ -3,17 +3,18 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Text;
 
-namespace HashIndexers
+namespace HashIndexes
 {
     internal static class Helper
     {
-        internal const int Sentinel = 1;
+        internal const int BucketSentinel = 1;
 
         //citation https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
         internal static int GetNextPowerOfTwo(int size)
         {
-            if (size <= 0)
-                return 0;
+            //floor 2
+            if (size <= 2)
+                return 2;
             size |= size >> 1;
             size |= size >> 2;
             size |= size >> 4;
@@ -25,5 +26,9 @@ namespace HashIndexers
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static int ManualGetBucketIndex(int hash, int bucketSize)
             => hash & (bucketSize - 1);
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static int BucketRoom(int size)
+            => size + (size >> 1) + Helper.BucketSentinel;
     }
 }
