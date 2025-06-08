@@ -29,6 +29,7 @@ namespace HashIndexes
         public int BucketSize => this.hashBucket.Length;
         public int Capacity => Math.Min(this.keys.Length, this.hashBucket.Length);
         public int Count => this.count;
+        [Obsolete]
         public bool IsAddable => 
             this.count < this.keys.Length 
             && this.count < (this.hashBucket.Length - Helper.BucketSentinel);
@@ -47,7 +48,7 @@ namespace HashIndexes
             this.keys = new TKey[capacity];
         }
 
-        public void Expand(int newCapacity, bool forceRehash)
+        public void Expand(int newCapacity, bool forceRehash = false)
         {
             if (newCapacity > this.keys.Length)
             {
@@ -116,7 +117,7 @@ namespace HashIndexes
             }
         }
 
-        public bool TryGetIndex(TKey key,[MaybeNullWhen(false)] scoped out Index index)
+        public bool TryGetIndex(TKey key,[MaybeNullWhen(false)] scoped out int index)
         {
             var hashIndex = key.GetHashCode();
             var bucket = this.hashBucket.AsSpan();
@@ -152,7 +153,7 @@ namespace HashIndexes
             return outs.exist;
         }
 
-        public Index ExpandableGetIndex(TKey key, out bool exist, byte tolerateCollisions)
+        public int ExpandableGetIndex(TKey key, out bool exist, byte tolerateCollisions)
         {
             //checking
             this.BucketCheck();
@@ -195,7 +196,7 @@ namespace HashIndexes
 
             return this.Setup(outs.indexOfBucket, outs.keyOfSlot, key);
         }
-        public Index GetIndex(TKey key, out bool exist)
+        public int GetIndex(TKey key, out bool exist)
         {
             var version = this.version.Bucket;
             var bucket = this.hashBucket.AsSpan();
@@ -232,7 +233,7 @@ namespace HashIndexes
         }
 
         [MethodImpl (MethodImplOptions.AggressiveInlining)]
-        private Index Setup(int insertStartIndex, Meta.Data setData, TKey setKey)
+        private int Setup(int insertStartIndex, Meta.Data setData, TKey setKey)
         {
             var keyIndex = this.count++;
             var meta = new Meta(keyIndex, setData);
