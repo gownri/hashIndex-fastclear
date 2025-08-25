@@ -1,6 +1,8 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
-namespace HashIndexes.InternalModules;
+namespace HashIndex.InternalModules;
 
 internal readonly struct Meta
 {
@@ -10,7 +12,8 @@ internal readonly struct Meta
 
     public readonly Data MashedVDH {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        get => Data.FromUInt(this.RawData);
+        get =>
+        Data.FromUInt(this.RawData);
         //Unsafe.As<uint, Meta.Data>(ref Unsafe.AsRef(this.RawData));
     }
     internal Meta(int keyIndex, Data data)
@@ -18,10 +21,10 @@ internal readonly struct Meta
         this.KeyIndex = keyIndex;
         this.RawData = data.RawData;
     }
-    private Meta(int keyIndex, uint mashedHash)
+    private Meta(int keyIndex, uint raw)
     {
         this.KeyIndex = keyIndex;
-        this.RawData = mashedHash;
+        this.RawData = raw;
     }
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal readonly Meta Update(Data data)
@@ -40,6 +43,7 @@ internal readonly struct Meta
         internal static readonly Data Initial = CreateEntry(0, 1);
         internal const int DistanceOffset = sizeof(byte) * 8;
         internal const int VersionOffset = sizeof(byte) * 8 + sizeof(byte) * 8;
+        internal const int HashMask = 0xFF;
         internal readonly uint RawData;
 
         public readonly int Distance
@@ -52,10 +56,16 @@ internal readonly struct Meta
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get => (int)(this.RawData >> VersionOffset);
         }
+
+        public readonly int Hash
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => (int)(this.RawData & HashMask);
+        }
         internal const int MaxCountableDistance = byte.MaxValue;
         private Data(uint hash, ushort version)
         {
-            uint mash = hash >> 8 ^ hash;
+            uint mash = (hash >> 8) ^ hash;
             mash ^= mash >> 16;
             mash &= 0xFF;
             //uint mash = hash ^ (hash << 8);
@@ -75,7 +85,16 @@ internal readonly struct Meta
             => new(this);
         //(JumpType)(  ( unchecked((short)this.RawData & -(short)this.RawData) & 0b0110 ) + 1); //{1, 3, 5}
         //(JumpType)((this.RawData & 0b0110) + 1);// {1, 3, 5, 7}
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal readonly Data SetDistance(int distance)
+        {
+#if DEBUG
+            if((uint)distance > (uint)byte.MaxValue)
+                throw new ArgumentOutOfRangeException(nameof(distance), $"Distance must be in range [0, {byte.MaxValue}]");
+#endif
+            const int distanceMask = byte.MaxValue << DistanceOffset;
+            return unchecked(  new((this.RawData & (uint)~distanceMask) | ((uint)distance << DistanceOffset))  );
+        }
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Data CreateEntry(int hash, ushort version)
             => new((uint)hash, version);
@@ -91,6 +110,7 @@ internal readonly struct Meta
             => new(unchecked(this.RawData - jt.ForMetaDataDistanceAddOperationValue));
 
         public override string ToString()
-            => $"{{ hash = {this.RawData & 0xFF,3} : v = {this.Version,3} : d = {this.Distance,3} : j = {(int)this.GetJumpType(),1} }}";
+            => $"{{ hash:{this.RawData & 0xFF,3} v:{this.Version,3} d:{this.Distance,3} j:{(int)this.GetJumpType(),2} }}";
+
     }
 }

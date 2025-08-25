@@ -1,10 +1,10 @@
 ﻿using System.Runtime.CompilerServices;
 
-namespace HashIndexes.InternalModules;
+namespace HashIndex.InternalModules;
 
-internal readonly struct BucketVersion
+internal readonly struct HashTableVersion
 {
-    private const int bucketMask = ushort.MaxValue;
+    private const int hashTableMask = ushort.MaxValue;
     private const int overflowThreshold = ushort.MaxValue - 1;
     private const int generationOffset = sizeof(ushort) * 8;
     private const int generationUnit = 1 << generationOffset;
@@ -16,7 +16,7 @@ internal readonly struct BucketVersion
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get => this.value;
     }
-    public readonly ushort Bucket
+    public readonly ushort HashTable
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get => unchecked((ushort)this.value);
@@ -28,24 +28,24 @@ internal readonly struct BucketVersion
     }
 
     public readonly bool IsValid => this.value != 0;
-    public static BucketVersion Create()
+    public static HashTableVersion Create()
     {
         return new(0, 1);
     }
-    private BucketVersion(short generation, ushort bucket)
-        => this.value = (uint)generation << generationOffset | bucket;
-    private BucketVersion(uint value)
+    private HashTableVersion(short generation, ushort table)
+        => this.value = (uint)generation << generationOffset | table;
+    private HashTableVersion(uint value)
         => this.value = value;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public BucketVersion ReuseBucket(BucketVersion bucketVersion)
-        => new(unchecked(this.value & (uint)(~bucketMask) | bucketVersion.Bucket));
+    public HashTableVersion ReuseTable(HashTableVersion tableVersion)
+        => new(unchecked(this.value & (uint)(~hashTableMask) | tableVersion.HashTable));
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public readonly BucketVersion IncrementBucket(out bool isOverflow)
+    public readonly HashTableVersion IncrementTable(out bool isOverflow)
     {
         const int increment = 1;
         const int overflowedIncrement = 3;
-        var isOverflowL = (this.value & bucketMask) == overflowThreshold;
+        var isOverflowL = (this.value & hashTableMask) == overflowThreshold;
         isOverflow = isOverflowL;
         return new((uint)(this.value 
             + (isOverflowL 
@@ -55,6 +55,9 @@ internal readonly struct BucketVersion
         ));
     }
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public readonly BucketVersion ResetGeneration()
-        => new(0, this.Bucket);
+    public readonly HashTableVersion ResetGeneration()
+        => new(0, this.HashTable);
+
+    public readonly override string ToString()
+        => $"Gen:{this.Generation,5} Bkt:{this.HashTable,5}";
 }

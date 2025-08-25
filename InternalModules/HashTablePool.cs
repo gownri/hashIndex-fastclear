@@ -5,70 +5,69 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace HashIndexes.InternalModules;
+namespace HashIndex.InternalModules;
 
-internal static class BucketPool
+internal static class HashTablePool
 {
 
-    private const int BucketSizeFloor = 15;
+    private const int TableSizeFloor = 15;
     private static readonly bool isSupported =
-        (Unsafe.SizeOf<Meta>() * BucketSizeFloor) > Unsafe.SizeOf<BufferData>();
+        (Unsafe.SizeOf<Meta>() * TableSizeFloor) > Unsafe.SizeOf<BufferData>();
     private static readonly Guid guid = Guid.NewGuid();
     private static readonly BufferData defaultData = default;
-    internal static Meta[] Rent(int minimumLength, out BucketVersion bucketVersion)
+    internal static Meta[] Rent(int minimumLength, out HashTableVersion tableVersion)
     {
         const int index = 0;
-        minimumLength |= BucketSizeFloor;
+        minimumLength |= TableSizeFloor;
         
         var array = ArrayPool<Meta>.Shared.Rent(minimumLength);
         if (isSupported)
         {
             if ((uint)index >= (uint)array.Length)
             {
-                bucketVersion = BucketVersion.Create();
+                tableVersion = HashTableVersion.Create();
                 return array; 
             }
-            ref var destination = ref Unsafe.As<Meta, byte>(ref array[0]);
+            ref var destination = ref Unsafe.As<Meta, byte>(ref array[index]);
             var bufferData = Unsafe.ReadUnaligned<BufferData>(ref destination);
             Unsafe.WriteUnaligned(ref destination, defaultData);
             if (bufferData == guid)
             {
-                bucketVersion = bufferData.version;
-                //bufferGuid.version
-                //    .IncrementBucket(out var over)
-                //    .ResetGeneration();
-                //isManaged ^= over;
+                tableVersion = bufferData.version
+                    .IncrementTable(out var overflowed)
+                    .ResetGeneration();
+                if(overflowed)
+                    Array.Clear(array, 0, array.Length);
             } else
             {
-                bucketVersion = BucketVersion.Create(); 
+                tableVersion = HashTableVersion.Create(); 
                 Array.Clear(array, 0, array.Length);
             }
         }
         else
         {
-            bucketVersion = BucketVersion.Create();
+            tableVersion = HashTableVersion.Create();
             Array.Clear(array, 0, array.Length);
         }
 
         return array;
     }
 
-    internal static void Return(Meta[] bucket, BucketVersion version)
+    internal static void Return(Meta[] table, HashTableVersion version)
     {
-        const int index = 0;
-        if ((uint)index >= (uint)bucket.Length)
+        if (TableSizeFloor > table.Length)
             return;
-        ref var destination = ref Unsafe.As<Meta, byte>(ref bucket[index]);
+        ref var destination = ref Unsafe.As<Meta, byte>(ref table[0]);
         Unsafe.WriteUnaligned(ref destination, new BufferData(guid, version));
-        ArrayPool<Meta>.Shared.Return(bucket);
+        ArrayPool<Meta>.Shared.Return(table);
     }
 
     private readonly struct BufferData
     {
         public readonly Guid guid;
-        public readonly BucketVersion version;
+        public readonly HashTableVersion version;
 
-        public BufferData(Guid guid, BucketVersion version)
+        public BufferData(Guid guid, HashTableVersion version)
         {
             this.guid = guid;
             this.version = version;

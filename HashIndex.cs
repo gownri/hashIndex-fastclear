@@ -1,9 +1,6 @@
-﻿#nullable enable
-using HashIndexes.InternalModules;
+﻿using HashIndex.InternalModules;
 using System;
-using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 
 namespace IndexFriendlyCollections;
@@ -12,105 +9,117 @@ namespace IndexFriendlyCollections;
 public class HashIndex<TKey> : IDisposable
     where TKey : notnull, IEquatable<TKey>
 {
-    private const int keysCapacityOffset = 1;
-    public void BucketDebugDisplay()
+    public const int SupportedTableSize = 0x4000_0000;
+    public const int SupportedMaxCapacity = SupportedTableSize - 1;
+    public System.Collections.Generic.IEnumerable<string> HashTableDebugDisplay()
     {
-        var bucket = this.hashBucket.AsSpan();
-        foreach(var v in bucket)
-        {
-            Console.WriteLine(v);
-        }
+        var table = this.table;
+        foreach (var v in table)
+            yield return $"key:{((uint)v.KeyIndex < (uint)this.keys.Length
+                    ? this.keys[v.KeyIndex].ToString()
+                    : "null"
+                ),12} {{{v}}}";
+
     }
-    private BucketVersion version;
-    private Meta[] hashBucket;
+
+#if DEBUG
+    public int MaxCollisions { get; private set; }
+#endif
+    private HashTableVersion version;
+    private Meta[] table;
     private TKey[] keys;
-
+    internal ref TKey[] KeysRef
+        => ref this.keys;
     private int count = 0;
-    //private Meta.Data maxCollision = Meta.Data.Initial;
-
-    //[Obsolete]
-    //public int MaxCollisions => this.maxCollision.Distance;
-    public int BucketSize => this.hashBucket.Length;
-    public int Capacity => this.keys.Length - keysCapacityOffset;
+    public int HashTableSize => this.table.Length;
+    public int Capacity => this.keys.Length;
     public int Count => this.count;
     public ReadOnlySpan<TKey> Keys => this.keys.AsSpan(0, this.count);
     public uint VersionToken => this.version.RawValue;
-    public HashIndex(int capacity, bool useArrayPool = false)
+    public HashIndex(int capacity = Helper.KeysFloor, int hashTableSize = -1, bool usePoolingTable = true)
     {
-        this.version = BucketVersion.Create();
-        this.hashBucket = Array.Empty<Meta>(); 
+        this.version = HashTableVersion.Create();
+        this.table = Array.Empty<Meta>(); 
         this.keys = Array.Empty<TKey>();
-        this.Expand(Helper.GetBucketSize(capacity), false, useArrayPool);
+        hashTableSize = hashTableSize > capacity
+            ? hashTableSize
+            : capacity * 3 | Helper.TableFloor;
+        this.Expand(capacity, hashTableSize, false, usePoolingTable);
 #if DEBUG
-        this.hashBucket.AsSpan().Fill(new(unchecked((int)0xABADBEEF), default));
+        this.table.AsSpan().Fill(new(unchecked((int)0xABADBEEF), default));
 #endif
     }
 
-    public void Expand(int newCapacity, bool forceRehash = false, bool useArrayPool = false)
+    public void Expand(int newKeysCapacity, bool forceRehash = false, bool usePoolingTable = true)
     {
-        //var keys = this.keys.AsSpan(..this.count);
-        //if (newCapacity > keys.Length)
-        //{
-        //    var newKeys = useArrayPool 
-        //        ? ArrayPool<TKey>.Shared.Rent(newCapacity) 
-        //        : new TKey[Helper.GetNextPowerOfTwo(newCapacity)];
-        //    keys.CopyTo(newKeys);
-        //    ArrayPool<TKey>.Shared.Return(this.keys, RuntimeHelpers.IsReferenceOrContainsReferences<TKey>());
-        //    this.keys = newKeys;
-        //    keys = newKeys.AsSpan(0, keys.Length);
-        //}
-
-        //newCapacity = Helper.GetBucketSizeOfKeyCapacity(newCapacity);
-        //if(newCapacity > this.hashBucket.Length)
-        //{
-        //    BucketPool.Return(this.hashBucket, this.version);
-        //    this.hashBucket = BucketPool.Rent(newCapacity, out this.version);
-        //    forceRehash = true;
-        //}
-
-        //if (forceRehash)
-        //{
-        //    this.VersionIncrement();
-        //    this.hashBucket.AsSpan().Rehash(keys, this.version.Bucket);
-        //}
+        var table = newKeysCapacity * 3;
         this.Expand(
-            Helper.RoundUpToPoolingSize(newCapacity), 
-            Helper.RoundUpToPoolingSize(
-                Helper.GetBucketRoom(newCapacity)
-            ),
-            forceRehash, 
-            useArrayPool);
+            newKeysCapacity,
+            (uint)table >= (uint)SupportedTableSize ? SupportedTableSize : table,
+            forceRehash,
+            usePoolingTable
+        );
     }
 
-    private void Expand(int newKeysCapacity, int newBucketCapacity, bool forceRehash = false, bool useArrayPool = false)
+    public void Expand(int newKeysCapacity, int newTableSize, bool forceRehash = false, bool usePoolingTable = true)
     {
-        if (newKeysCapacity > this.keys.Length)
+        var keys = this.keys;
+        var count = this.count;
+        var table = this.table;
+        if ((uint)newKeysCapacity > (uint)SupportedMaxCapacity)
+            ThrowKeysCapacity();
+        if (newKeysCapacity > keys.Length)
         {
-            var newKeys = useArrayPool
-                ? ArrayPool<TKey>.Shared.Rent(newKeysCapacity)
-                : new TKey[newKeysCapacity];
-            Array.Copy(this.keys, newKeys, this.count);
-            ArrayPool<TKey>.Shared.Return(this.keys, RuntimeHelpers.IsReferenceOrContainsReferences<TKey>());
+            var newKeys = new TKey[newKeysCapacity];
+            Array.Copy(keys, newKeys, count);
             this.keys = newKeys;
+            keys = newKeys;
         }
-
-        if (newBucketCapacity > this.hashBucket.Length)
+        newKeysCapacity = keys.Length;
+        
+        if (newTableSize <= newKeysCapacity)
+            newTableSize = newKeysCapacity + 1;
+        if (newTableSize > table.Length)
         {
-            BucketPool.Return(this.hashBucket, this.version);
-            this.hashBucket = BucketPool.Rent(newBucketCapacity, out var bucketVersion);
-            this.version = this.version.ReuseBucket(bucketVersion);
-            forceRehash = true;
+            if ((uint)newTableSize > (uint)SupportedTableSize)
+                newTableSize = SupportedTableSize;
+            HashTablePool.Return(table, this.version);
+            if(usePoolingTable)
+                table = HashTablePool.Rent(newTableSize, out this.version);
+            else
+            {
+                table = new Meta[Helper.GetTableSize(newTableSize)];
+                this.version = HashTableVersion.Create();
+            }
+            forceRehash = count > 0;
+            this.table = table.Length != 0 
+                ? table
+                : new Meta[Helper.GetTableSize(newTableSize)];
         }
 
         if (forceRehash)
-        {
-            this.VersionIncrement();
-            var count = this.count;
-            if(count > 0)
-                this.hashBucket.AsSpan().Rehash(this.keys.AsSpan(..count), this.version.Bucket);
-        }
+            this.Rehash();
+
+        static void ThrowKeysCapacity()
+            => throw new ArgumentOutOfRangeException($"arg:{nameof(newKeysCapacity)} was outside the range of 0 to {nameof(SupportedMaxCapacity)}:{SupportedMaxCapacity}.");
+        //static void ThrowTableSize()
+        //    => throw new ArgumentOutOfRangeException($"arg:{nameof(newTableSize)} was outside the range of {nameof(SupportedTableSize)}:{SupportedTableSize}" +
+        //    $"or less than of {nameof(newKeysCapacity)}.");
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Rehash()
+    {
+        var keys = new ReadOnlySpan<TKey>(this.keys, 0, this.count);
+        this.Clear();
+        if (keys.Length > 0)
+            this.table.AsSpan().Rehash(
+                keys,
+                this.version.HashTable
+            );
+        this.count = keys.Length;
+    }
+    
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Clear(bool ClearAllKeys)
     {
@@ -122,177 +131,135 @@ public class HashIndex<TKey> : IDisposable
     public void Clear()
     {
         this.count = 0;
-        this.VersionIncrement();
+        this.version = this.version.IncrementTable(out var isOverflow);
+        if (isOverflow)
+            Array.Clear(this.table, 0, this.table.Length);
+#if DEBUG
+        this.MaxCollisions = 0;
+#endif
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void VersionIncrement()
+    public bool TryGetIndex(TKey key,[MaybeNullWhen(false)] out int index)
     {
-        this.version = this.version.IncrementBucket(out var isOverflow);
-        if (isOverflow)
-            Array.Clear(this.hashBucket, 0, this.hashBucket.Length);
-    }
-    public bool TryGetIndex(TKey key, [MaybeNullWhen(false)] scoped out int index)
-    {
-        const int invalidIndex = -1;
-        var bucket = this.hashBucket.AsSpan();
+        var table = this.table.AsSpan();
         var keys = this.keys.AsSpan(..this.count);
+        var version = this.version.HashTable;
 
-        var hashIndex = key.GetHashCode();
-        var entryKey = Meta.Data.CreateEntry(hashIndex, this.version.Bucket);
-        var inBucket = bucket.GetBucket(hashIndex, out hashIndex); 
-        var indexL = inBucket.KeyIndex;
-
-        if (inBucket.RawData == entryKey.RawData
-            && (uint)indexL < (uint)keys.Length
-                && keys[indexL].Equals(key))
-        {
-            index = indexL;
-            return true;
-        }
-        else if (inBucket.RawData < entryKey.RawData)
-        {
-            index = invalidIndex;
+        var indexL = table.InitialProve(key, version, out var context);
+        index = indexL;
+        if ((uint)indexL < (uint)keys.Length)
+            if(keys[indexL].Equals(key))
+                return true;
+        else
             return false;
-        }
-        var jump = entryKey.GetJumpType();
 
-        index = bucket.FindOrLess(
+        index = table.FindOrInserted(
             keys,
-            (
-                hashIndex + (int)jump,
-                entryKey.AddJump(jump),
-                jump,
-                key
-            ),
-            out var outs
-        ).KeyIndex;
-        return outs.exist;
-    }
-
-    //[Obsolete]
-    //public int ExpandableGetIndex(TKey key, out bool exist, byte tolerateCollisions)
-    //    => this.GetIndex(key, out exist);
-    //[Obsolete]
-    //public int ExpandableGetIndex(TKey key, out bool exist, byte tolerateCollisions)
-    //{
-    //    var version = this.version.Bucket;
-    //    var bucket = this.hashBucket.AsSpan();
-    //    var hashIndex = key.GetHashCode();
-    //    var entryKey = Meta.Data.CreateEntry(hashIndex, version);
-    //    var keys = this.keys.AsSpan();
-    //    var entry = bucket.GetBucket(hashIndex, out hashIndex);
-    //    if (exist = entry.RawData == entryKey.RawData
-    //        && keys[entry.KeyIndex].Equals(key))
-    //        return entry.KeyIndex;
-    //    else if (entry.RawData < entryKey.RawData)
-    //    {
-    //        exist = false;
-    //        return this.Setup(hashIndex, entryKey, key);
-    //    }
-
-    //    entry = bucket.FindOrLess(
-    //        keys,
-    //        (
-    //            hashIndex,
-    //            entryKey,
-    //            entryKey.GetJumpType(),
-    //            key
-    //        ),
-    //        out var outs
-    //    );
-
-    //    //checking
-    //    if (this.maxCollision.RawData < outs.metaDataOfSlot.RawData)
-    //        this.maxCollision = outs.metaDataOfSlot;
-    //    if (this.maxCollision.Distance > tolerateCollisions)
-    //        this.Expand(keys.Length * 2, true);
-
-    //    exist = outs.exist;
-    //    if (exist)
-    //        return entry.KeyIndex;
-    //    keys = this.keys.AsSpan();
-    //    if(this.count + 1 >= keys.Length)
-    //        this.Expand(keys.Length * 2);
-    //    return this.Setup(outs.indexOfSlot, outs.metaDataOfSlot, key);
-    //}
-    public int GetIndex(TKey key, out bool exist)
-    {
-        var bucket = this.hashBucket.AsSpan();
-        var keys = this.keys.AsSpan(..this.count);
-
-        var hashIndex = key.GetHashCode();
-        var entry = Meta.Data.CreateEntry(hashIndex, this.version.Bucket);
-        var inBucket = bucket.GetBucket(hashIndex, out hashIndex);
-
-        var indexL = inBucket.KeyIndex;
-        if (inBucket.RawData == entry.RawData
-            && (uint)indexL < (uint)keys.Length
-                && keys[indexL].Equals(key))
-        {
-            exist = true;
-            return indexL;
-        }
-        else if (inBucket.RawData < entry.RawData)
-        {
-            exist = false;
-            return this.Setup(hashIndex, entry, key);
-        }
-
-        var jump = entry.GetJumpType();
-        inBucket = bucket.FindOrLess(
-            keys,
-            (
-                hashIndex + (int)jump,
-                entry.AddJump(jump),
-                jump,
-                key
-            ),
-            out var outs
+            key,
+            context,
+            version,
+            -1,
+            false,
+            out var exist,
+            out _
         );
 
-        if (outs.exist)
-        {
-            exist = true;
-            return inBucket.KeyIndex;
-        }
-
-        exist = false;
-        return this.Setup(outs.indexOfSlot, outs.metaDataOfSlot, key);
+        return exist;
     }
-
-    [MethodImpl (MethodImplOptions.AggressiveInlining)]
-    private int Setup(int insertStartIndex, Meta.Data setData, TKey setKey)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int GetIndex(TKey key, out bool exist)
     {
-        var keys = this.keys;
-        var keyIndex = this.count++;
-        keys[keyIndex] = setKey;
-        var meta = new Meta(keyIndex, setData);
-        this.hashBucket.AsSpan().Insert(insertStartIndex, meta, this.version.Bucket);
+        var table = this.table.AsSpan();
+        var next = this.count;
+        var keys = this.keys.AsSpan(0, next);
+        var version = this.version.HashTable;
 
-        if((keyIndex + keysCapacityOffset) >= keys.Length)
-            this.Expand(keys.Length * 2);
-        //if(setData.Distance > Helper.CollisionTolerance)
-        //{
-        //    this.Expand(keys.Length, this.hashBucket.Length * 2);
-        //}
-        return keyIndex;
+        var index = table.InitialProve(key, version, next, out var context);
+        if (exist = ((uint)index < (uint)keys.Length
+            && keys[index].Equals(key)))
+            return index;
+        else if (index == next)
+            return Setup(key, 0);
+
+        index = table.FindOrInserted(
+            keys,
+            key,
+            context,
+            version,
+            next,
+            true,
+            out exist,
+            out var collisionCount
+        );
+
+        if (exist)
+            return index;
+        else
+            return Setup(key, collisionCount);
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        int Setup(TKey setKey, int collisionCount)
+        {
+    #if DEBUG
+            MaxCollisions = Math.Max(collisionCount, MaxCollisions);
+    #endif
+            var keys = this.keys;
+            var keyIndex = this.count;
+            if ((uint)keyIndex >= (uint)keys.Length
+                || collisionCount > Helper.CollisionTolerance)
+                ExpandAdd(keyIndex, setKey, collisionCount);
+            else 
+                keys[keyIndex] = setKey;
+            this.count = keyIndex + 1;
+            return keyIndex;
+
+            [MethodImpl(MethodImplOptions.NoInlining)]
+            void ExpandAdd(int index, TKey setKey, int collisionCount)
+            {
+                var keys = this.keys;
+                int newSize;
+                if((uint)index < (uint)keys.Length)
+                    keys[index] = setKey;
+                else
+                {
+                    newSize = 
+                        keys.Length > 0
+                            ? keys.Length * 2
+                            : Helper.KeysFloor;
+                    if ((uint)newSize >= (uint)SupportedMaxCapacity)
+                        newSize = SupportedMaxCapacity;
+                    var newTableSize = newSize * 3;
+                    if ((uint)newTableSize >= (uint)SupportedTableSize)
+                        newTableSize = SupportedTableSize;
+
+                    this.Expand(
+                        newSize,
+                        newTableSize
+                    );
+                    keys = this.keys;
+                    keys[index] = setKey;
+                }
+                newSize = this.table.Length;
+                if (collisionCount > Helper.CollisionTolerance
+                    && keys.Length * 2 > newSize)
+                    this.Expand(0, newSize * 2);
+                
+            }
+        }
     }
 
     public void Dispose()
     {
         this.count = -1;
-        this.version = default;
-        if (this.hashBucket is not null)
+        if (this.table is not null)
         {
-            BucketPool.Return(this.hashBucket, this.version);
-            this.hashBucket = null!;
+            HashTablePool.Return(this.table, this.version);
+            this.table = null!;
         }
 
-        if (this.keys is not null)
-        {
-            ArrayPool<TKey>.Shared.Return(this.keys, RuntimeHelpers.IsReferenceOrContainsReferences<TKey>());
-            this.keys = Array.Empty<TKey>();
-        }
+        this.version = default;
+        this.keys = Array.Empty<TKey>();
+
     }
 }
